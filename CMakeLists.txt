@@ -15,6 +15,9 @@ add_subdirectory(external/raylib)
 add_subdirectory(external/nfd)
 # Add tinyxml2
 add_subdirectory(external/tinyxml2)
+# Add xlnt
+set(XLNT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/xlnt)
 
 # Add ImGui
 add_library(ImGui STATIC
@@ -68,7 +71,7 @@ if(WIN32)
   endif()
 endif()
 target_include_directories(${PROJECT_NAME} PUBLIC src)
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib ImGui rlImGui nfd tinyxml2)
+target_link_libraries(${PROJECT_NAME} PRIVATE raylib ImGui rlImGui nfd tinyxml2 xlnt)
 
 # Check if Generator is Visual Studio 
 if (CMAKE_GENERATOR MATCHES "Visual Studio")

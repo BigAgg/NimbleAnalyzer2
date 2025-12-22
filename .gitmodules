@@ -13,3 +13,6 @@
 [submodule "external/tinyxml2"]
 	path = external/tinyxml2
 	url = https://github.com/leethomason/tinyxml2
+[submodule "external/xlnt"]
+	path = external/xlnt
+	url = https://github.com/xlnt-community/xlnt

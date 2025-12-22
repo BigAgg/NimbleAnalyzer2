@@ -3,6 +3,7 @@
 #include "fileDialog.h"
 #include "themes.h"
 #include "utils.h"
+#include "NimbleAnalyzer.h"
 #include <tinyxml2.h>
 #include <filesystem>
 #include <fstream>
@@ -16,6 +17,7 @@
 #include <vector>
 
 namespace fs = std::filesystem;
+namespace na = NimbleAnalyzer;
 using namespace tinyxml2;
 
 // General App settings
@@ -29,6 +31,7 @@ void App::init(const char* name){
 	initRaylib(name);
 	initRessources();
 	initImGui();
+	na::init();
 }
 
 void App::run() {
@@ -197,6 +200,7 @@ void App::cleanup() {
 	rlImGuiShutdown();
 	UnloadRessources();
 	CloseWindow();
+	na::cleanup();
 	logging::loginfo("[App::cleanup] Window cleaned up and closed!");
 }
 
@@ -295,10 +299,12 @@ void App::contentWindow(){
 
 	ImGui::Begin(windowname.c_str(), nullptr, flags);
 	if (ImGui::BeginMenuBar()) {
+		na::menubar();
 	}
 	ImGui::EndMenuBar();
 
 	if (ImGui::BeginChild("ContentWindow", { 0, 0 }, true, ImGuiWindowFlags_HorizontalScrollbar)) {
+		na::contentwindow();
 	}
 	ImGui::EndChild();
 	ImGui::End();
