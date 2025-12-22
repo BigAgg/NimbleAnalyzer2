@@ -131,5 +131,53 @@ std::string fileloader::fileinfo(const std::string& filename) {
 }
 
 bool fileloader::exists(const std::string& filename) {
-	return fs::exists(filename);
+	fs::path path = fs::u8path(filename);
+	return fs::exists(path);
+}
+
+std::vector<std::string> fileloader::iteratePath(const std::string& path, bool includeDirs, bool includeFiles)
+{
+	std::vector<std::string> content;
+	const fs::path dir = path;
+	if (!exists(dir)) {
+		logging::logwarning("[fileloader::iteratePath] The selected path does not exist!");
+		return content;
+	}
+	for (auto const& dir_entry : fs::directory_iterator{ dir }) {
+		std::string pbuffer = dir_entry.path().string();
+		convertContentToUTF8(&pbuffer);
+		content.push_back(pbuffer);
+	}
+	logging::loginfo("[fileloader::iteratePath] Found %zu entries in %s", content.size(), path.c_str());
+	return content;
+}
+
+std::string fileloader::getFilename(const std::string& path)
+{
+	fs::path p = path;
+	return p.filename().string();
+}
+
+std::string fileloader::u8path(const std::string& path){
+	fs::path p = fs::u8path(path);
+	return p.string();
+}
+
+void fileloader::copy(const std::string& source, const std::string& dest, bool overwrite){
+	fs::path s = fs::u8path(source);
+	fs::path d = fs::u8path(dest);
+	if(overwrite)
+		fs::copy(s, d, fs::copy_options::overwrite_existing);
+	else
+		fs::copy(s, d, fs::copy_options::skip_existing);
+}
+
+void fileloader::createDirs(const std::string& dirs){
+	fs::path path = fs::u8path(dirs);
+	fs::create_directories(path);
+}
+
+void fileloader::del(const std::string& path){
+	fs::path p = fs::u8path(path);
+	fs::remove_all(p);
 }

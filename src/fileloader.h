@@ -13,4 +13,12 @@ namespace fileloader {
 	std::string fileinfo(const std::string& filename);
 
 	bool exists(const std::string& filename);
+
+	std::vector<std::string> iteratePath(const std::string& path, bool includeDirs = true, bool includeFiles = true);
+	std::string getFilename(const std::string& path);
+	std::string u8path(const std::string& path);
+
+	void copy(const std::string& source, const std::string& dest, bool overwrite=true);
+	void createDirs(const std::string& dirs);
+	void del(const std::string& path);
 };

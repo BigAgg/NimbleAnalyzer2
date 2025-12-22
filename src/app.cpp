@@ -44,9 +44,9 @@ void App::run() {
 }
 
 void App::createDirs(){
-	if (!fs::exists("baseproject")) {
-		fs::create_directory("baseproject");
-		logging::loginfo("[App::createDirs] baseproject directory created!");
+	if (!fs::exists("projects")) {
+		fs::create_directory("projects");
+		logging::loginfo("[App::createDirs] projects directory created!");
 	}
 }
 
@@ -278,7 +278,7 @@ void App::taskbar(){
 
 
 void App::contentWindow(){
-	std::string windowname = "<Window Name>";
+	std::string windowname = "Project window";
 	ImGuiViewport* viewport = ImGui::GetMainViewport();
 
 	ImGui::SetNextWindowPos(viewport->WorkPos);
