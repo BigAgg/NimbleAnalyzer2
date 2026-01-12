@@ -96,3 +96,11 @@ else()
   # Skipping copying resources
   message(STATUS "Resource folder not found: ${RES_DIR}. Skipping sesource copy.")
 endif()
+
+# Copy xlnt.dll after build (only if xlnt is built as a shared library)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:xlnt>  # This gets the .dll or .so depending on platform
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>
+  COMMENT "Copying xlnt.dll to the output directory..."
+)

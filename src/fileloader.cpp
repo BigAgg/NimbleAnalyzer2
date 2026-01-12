@@ -131,8 +131,7 @@ std::string fileloader::fileinfo(const std::string& filename) {
 }
 
 bool fileloader::exists(const std::string& filename) {
-	fs::path path = fs::u8path(filename);
-	return fs::exists(path);
+	return fs::exists(u8topath(filename));
 }
 
 std::vector<std::string> fileloader::iteratePath(const std::string& path, bool includeDirs, bool includeFiles)
@@ -160,6 +159,11 @@ std::string fileloader::getFilename(const std::string& path)
 
 std::string fileloader::u8path(const std::string& path){
 	fs::path p = fs::u8path(path);
+	return p.string();
+}
+
+std::string fileloader::u8topath(const std::string& path){
+	fs::path p = fs::u8path(reinterpret_cast<const char*>(path.data()));
 	return p.string();
 }
 

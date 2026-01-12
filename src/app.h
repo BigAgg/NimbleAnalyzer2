@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "NimbleAnalyzer.h"
 
 class App {
 public:
@@ -29,6 +30,9 @@ private:
 
 	// Rebuilding logview
 	void rebuildLogview();
+
+	// NimbleAnalyzer
+	NimbleAnalyzer na;
 	
 	// window settings
 	struct {

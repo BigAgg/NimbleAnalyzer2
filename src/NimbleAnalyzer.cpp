@@ -42,27 +42,58 @@ static struct {
 	}
 } projectInfo;
 
-static void loadProjectsAvail();
-static void generateProject(const std::string& name);
-static void deleteProject(const std::string& name);
-static void projectSelection();
-static void fileSelection();
-
 void NimbleAnalyzer::init(){
 	loadProjectsAvail();
 }
 
 void NimbleAnalyzer::menubar(){
+	switch (viewmode) {
+	case ViewMode::ProjectSelection:
+		if (ImGui::Button("Data view"))
+			viewmode = ViewMode::DataView;
+		if (ImGui::Button("Just merge"))
+			viewmode = ViewMode::JustMerge;
+		break;
+	case ViewMode::DataView:
+		if (ImGui::Button("Project selection"))
+			viewmode = ViewMode::ProjectSelection;
+		if (ImGui::Button("Just merge"))
+			viewmode = ViewMode::JustMerge;
+		break;
+	case ViewMode::JustMerge:
+		if (ImGui::Button("Project selection"))
+			viewmode = ViewMode::ProjectSelection;
+		if (ImGui::Button("Data view"))
+			viewmode = ViewMode::DataView;
+		break;
+	}
 }
 
 void NimbleAnalyzer::contentwindow(){
-	ImGui::BeginChild("Project selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
-	projectSelection();
-	ImGui::EndChild();
-	ImGui::SameLine();
-	ImGui::BeginChild("File selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
-	fileSelection();
-	ImGui::EndChild();
+	switch (viewmode) {
+	case ViewMode::ProjectSelection:
+		ImGui::BeginChild("Project selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+		projectSelection();
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::BeginChild("File selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+		fileSelection();
+		ImGui::EndChild();
+		ImGui::SameLine();
+		ImGui::BeginChild("Sheet selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+		sheetSelection();
+		ImGui::EndChild();
+		break;
+	case ViewMode::DataView:
+		dataView();
+		break;
+	case ViewMode::JustMerge:
+		justMerge();
+		break;
+	default:
+		viewmode = ViewMode::ProjectSelection;
+		break;
+	}
 }
 
 void NimbleAnalyzer::cleanup(){
@@ -71,7 +102,25 @@ void NimbleAnalyzer::cleanup(){
 	projectInfo.clear();
 }
 
-static void loadProjectsAvail() {
+void NimbleAnalyzer::dataView(){
+	// Displaying headers
+	bool first = true;
+	for (const Column& c : projectInfo.project.activeFile.columns) {
+		if(!first)
+			ImGui::SameLine();
+		ImGui::PushID(&c);
+		ImGui::Text(c.key.name.c_str());
+		ImGui::PopID();
+		first = false;
+	}
+	// Displaying data
+	
+}
+
+void NimbleAnalyzer::justMerge(){
+}
+
+void NimbleAnalyzer::loadProjectsAvail() {
 	projectInfo.projectsAvail.clear();
 	for (const auto& path : fl::iteratePath("projects", false)) {
 		if (!fl::exists(path)) {
@@ -86,7 +135,7 @@ static void loadProjectsAvail() {
 	logging::loginfo("[NimbleAnalyzer::loadProjectsAvail] Available projects found: %zu", projectInfo.projectsAvail.size());
 }
 
-static void generateProject(const std::string& name) {
+void NimbleAnalyzer::generateProject(const std::string& name) {
 	const std::string path = "projects/" + name;
 	if (fl::exists(path)) {
 		logging::logwarning("[NimbleAnalyzer::generateProject] Project does already exist: %s", name.c_str());
@@ -100,13 +149,13 @@ static void generateProject(const std::string& name) {
 	loadProjectsAvail();
 }
 
-static void deleteProject(const std::string& name) {
+void NimbleAnalyzer::deleteProject(const std::string& name) {
 	const std::string path = "projects/" + name;
 	fl::del(path);
 	loadProjectsAvail();
 }
 
-static void projectSelection() {
+void NimbleAnalyzer::projectSelection() {
 	ImGui::Text("Projects");
 	if (ImGui::BeginListBox("## Project Selection", { LISTBOX_WIDTH, LISTBOX_HEIGHT })) {
 		for (const auto& project : projectInfo.projectsAvail) {
@@ -148,12 +197,13 @@ static void projectSelection() {
 		std::string path = OpenDirectoryDialog();
 		if (path != "") {
 			convertContentToUTF8(&path);
+			projectInfo.project.save();
 			fl::copy(projectInfo.project.path, path + "/" + projectInfo.project.name);
 		}
 	}
 }
 
-void fileSelection(){
+void NimbleAnalyzer::fileSelection(){
 	if (!projectInfo.project.loaded)
 		return;
 	ImGui::Text("Files");
@@ -178,5 +228,20 @@ void fileSelection(){
 	if (ImGui::Button("Remove")) {
 		projectInfo.project.removefile(projectInfo.project.activeFile.path);
 		projectInfo.project.activeFile.clear();
+	}
+}
+
+void NimbleAnalyzer::sheetSelection(){
+	if (!projectInfo.project.loaded || !projectInfo.project.activeFile.loaded)
+		return;
+	ImGui::Text("Sheets");
+	if (ImGui::BeginListBox("## Sheet Selection", { LISTBOX_WIDTH, LISTBOX_HEIGHT })) {
+		for (const auto& sheet : projectInfo.project.activeFile.sheets) {
+			bool selected = (sheet == projectInfo.project.activeFile.activeSheet);
+			if (ImGui::Selectable(sheet.c_str(), &selected)) {
+				projectInfo.project.loadfile(projectInfo.project.activeFile.path, sheet);
+			}
+		}
+		ImGui::EndListBox();
 	}
 }

@@ -17,6 +17,7 @@ namespace fileloader {
 	std::vector<std::string> iteratePath(const std::string& path, bool includeDirs = true, bool includeFiles = true);
 	std::string getFilename(const std::string& path);
 	std::string u8path(const std::string& path);
+	std::string u8topath(const std::string& path);
 
 	void copy(const std::string& source, const std::string& dest, bool overwrite=true);
 	void createDirs(const std::string& dirs);
