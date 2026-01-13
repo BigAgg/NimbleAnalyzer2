@@ -145,18 +145,22 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int
 	}
 	// Retrieve the header row by finding "Data"
 	std::size_t headerIndex = 0;
+	std::size_t indexer = 0;
 	auto rows = ws.rows(false);
 	if (row < 0) {
 		for (auto row : rows) {
 			if (row[0].to_string() == "DATA") {
+				headerIndex = indexer;
 				break;
 			}
-			headerIndex++;
+			indexer++;
 		}
 	}
 	else {
 		headerIndex = row;
 	}
+	if (headerIndex < 0)
+		return table;
 
 	// Retrieving headers
 	std::unordered_map<std::string, std::uint32_t> seen;
