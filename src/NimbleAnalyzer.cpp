@@ -7,9 +7,11 @@
 #include "fileloader.h"
 #include "logging.h"
 #include "project.h"
+#include <raylib.h>
 #include "fileDialog.h"
 #include <string>
 #include <vector>
+#include <charconv>
 
 namespace fl = fileloader;
 #define LISTBOX_WIDTH 275.0f
@@ -42,10 +44,13 @@ static struct {
 	}
 } projectInfo;
 
+
 void NimbleAnalyzer::init(){
 	loadProjectsAvail();
 }
 
+static std::string g_search = "";
+static std::string g_search_header = "##NONE_HEADER";
 void NimbleAnalyzer::menubar(){
 	switch (viewmode) {
 	case ViewMode::ProjectSelection:
@@ -59,6 +64,27 @@ void NimbleAnalyzer::menubar(){
 			viewmode = ViewMode::ProjectSelection;
 		if (ImGui::Button("Just merge"))
 			viewmode = ViewMode::JustMerge;
+		ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+		ImGui::InputTextWithHint("##search", "search", &g_search);
+		ImGui::SetNextItemWidth(LISTBOX_WIDTH);
+		if (ImGui::BeginCombo("Search only in header", g_search_header.c_str())) {
+			bool selected = (g_search_header == "##NONE_HEADER");
+			if (ImGui::Selectable("##NONE_HEADER", &selected)) {
+				g_search_header = "##NONE_HEADER";
+			}
+			if (selected)
+				ImGui::SetItemDefaultFocus();
+			for (int n = 0; n < projectInfo.project.activeFile.columns.size(); n++) {
+				const std::string& s = header_label(projectInfo.project.activeFile.columns[n].key);
+				bool selected = (s == g_search_header);
+				if (ImGui::Selectable(s.c_str(), &selected)) {
+					g_search_header = s;
+				}
+				if (selected)
+					ImGui::SetItemDefaultFocus();
+			}
+			ImGui::EndCombo();
+		}
 		break;
 	case ViewMode::JustMerge:
 		if (ImGui::Button("Project selection"))
@@ -102,19 +128,167 @@ void NimbleAnalyzer::cleanup(){
 	projectInfo.clear();
 }
 
+static struct ActiveCell { int row = -1; int col = -1; };
+static ActiveCell g_active;
+
 void NimbleAnalyzer::dataView(){
-	// Displaying headers
-	bool first = true;
-	for (const Column& c : projectInfo.project.activeFile.columns) {
-		if(!first)
-			ImGui::SameLine();
-		ImGui::PushID(&c);
-		ImGui::Text(c.key.name.c_str());
-		ImGui::PopID();
-		first = false;
+	static std::unordered_map<CellKey, std::string, CellKeyHash> editBuf;
+
+	if (projectInfo.project.activeFile.columns.empty()) {
+		ImGui::TextUnformatted("No data available.");
+		return;
 	}
-	// Displaying data
-	
+
+	ImGuiTableFlags flags =
+		ImGuiTableFlags_Borders |
+		ImGuiTableFlags_RowBg |
+		ImGuiTableFlags_Resizable |
+		ImGuiTableFlags_ScrollY |
+		ImGuiTableFlags_ScrollX;
+
+	if (ImGui::BeginTable("##sheet_table", (int)projectInfo.project.activeFile.columns.size(), flags)) {
+		ImGui::TableSetupScrollFreeze(0, 1);
+		for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
+			const auto& col = projectInfo.project.activeFile.columns[c];
+			ImGui::TableSetupColumn(header_label(col.key).c_str(), ImGuiTableColumnFlags_WidthFixed, 140.0f);
+		}
+		ImGui::TableHeadersRow();
+
+		ImGuiListClipper clipper;
+		clipper.Begin((int)projectInfo.project.activeFile.rowCount);
+
+		while (clipper.Step()) {
+			for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
+				bool skip = true;
+				if (!g_search.empty()) {
+					for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
+						const auto& cell = projectInfo.project.activeFile.columns[c].values[r];
+						if (g_search_header != "##NONE_HEADER" && g_search_header != header_label(projectInfo.project.activeFile.columns[c].key))
+							continue;
+						if (g_search.starts_with("<") && g_search.ends_with(">")) {
+							auto* i = std::get_if<std::int64_t>(&cell.first);
+							auto* d = std::get_if<double>(&cell.first);
+							std::string s = g_search;
+							s = normalize_decimal(s);
+							s.erase(0, 1);
+							s.erase(s.size() - 1, 1);
+							auto split = Splitlines(s, ";");
+							double value1;
+							double value2;
+							auto result = std::from_chars(split.first.data(), split.first.data() + split.first.size(), value1);
+							if (!(result.ec == std::errc() && result.ptr == split.first.data() + split.first.size())) {
+								continue;
+							}
+							result = std::from_chars(split.second.data(), split.second.data() + split.second.size(), value2);
+							if (!(result.ec == std::errc() && result.ptr == split.second.data() + split.second.size())) {
+								continue;
+							}
+							if (i && *i > value1 && *i < value2) {
+								skip = false;
+								break;
+							}
+							else if(d && *d > value1 && *d < value2) {
+								skip = false;
+								break;
+							}
+						}
+						else if (g_search.starts_with("<")) {
+							auto* i = std::get_if<std::int64_t>(&cell.first);
+							auto* d = std::get_if<double>(&cell.first);
+							std::string s = g_search;
+							s = normalize_decimal(s);
+							s.erase(0, 1);
+							double value;
+							auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+							if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
+								continue;
+							}
+							if (i && *i < value) {
+								skip = false;
+								break;
+							}
+							else if(d && *d < value) {
+								skip = false;
+								break;
+							}
+						}
+						else if (g_search.starts_with(">")) {
+							auto* i = std::get_if<std::int64_t>(&cell.first);
+							auto* d = std::get_if<double>(&cell.first);
+							std::string s = g_search;
+							s = normalize_decimal(s);
+							s.erase(0, 1);
+							double value;
+							auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+							if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
+								continue;
+							}
+							if (i && *i > value) {
+								skip = false;
+								break;
+							}
+							else if(d && *d > value) {
+								skip = false;
+								break;
+							}
+						}
+						else if (cell.second.contains(g_search)) {
+							skip = false;
+							break;
+						}
+					}
+				}
+				else
+					skip = false;
+				if (skip)
+					continue;
+				ImGui::TableNextRow();
+				for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
+					ImGui::TableSetColumnIndex(c);
+
+					// safety
+					if ((std::size_t)r >= projectInfo.project.activeFile.columns[c].values.size()) {
+						ImGui::TextUnformatted("");
+						continue;
+					}
+
+					auto& cell = projectInfo.project.activeFile.columns[c].values[r];	// pair<ExcelValue, string>
+					ImGui::PushID(r);
+					ImGui::PushID(c);
+
+					const bool isActive = (g_active.row == r && g_active.col == c);
+
+					if (!isActive) {
+						if(ImGui::Selectable(cell.second.c_str())){
+							g_active = { r, c };
+							ImGui::SetKeyboardFocusHere();
+						}
+					}
+					else {
+						ImGuiInputTextFlags inputFlags =
+							ImGuiInputTextFlags_EnterReturnsTrue;
+						
+						bool enterPressed = ImGui::InputText("##cell", &cell.second, inputFlags);
+
+						bool commit = enterPressed || ImGui::IsItemDeactivatedAfterEdit();
+						if (commit) {
+							cell.first = parse_value_auto(cell.second);
+							cell.second = to_display(cell.first);
+							g_active = { -1, -1 };
+						}
+						// escape cancels
+						if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+							cell.second = to_display(cell.first);
+							g_active = { -1, -1 };
+						}
+					}
+					ImGui::PopID();
+					ImGui::PopID();
+				}
+			}
+		}
+		ImGui::EndTable();
+	}
 }
 
 void NimbleAnalyzer::justMerge(){
@@ -211,6 +385,7 @@ void NimbleAnalyzer::fileSelection(){
 		for (const auto& file : projectInfo.project.files) {
 			bool selected = (file == projectInfo.project.activeFile.path);
 			if (ImGui::Selectable(fl::getFilename(file).c_str(), &selected)) {
+				projectInfo.project.save();
 				projectInfo.project.loadfile(file);
 			}
 			ImGui::SetItemTooltip(file.c_str());
@@ -239,9 +414,25 @@ void NimbleAnalyzer::sheetSelection(){
 		for (const auto& sheet : projectInfo.project.activeFile.sheets) {
 			bool selected = (sheet == projectInfo.project.activeFile.activeSheet);
 			if (ImGui::Selectable(sheet.c_str(), &selected)) {
-				projectInfo.project.loadfile(projectInfo.project.activeFile.path, sheet);
+				projectInfo.project.save();
+				projectInfo.project.loadfile(
+					projectInfo.project.activeFile.path,
+					sheet,
+					projectInfo.project.activeFile.sheetRows[sheet]);
 			}
 		}
 		ImGui::EndListBox();
+	}
+	if (ImGui::InputInt("Header Row", &projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet].dataRow)) {
+		projectInfo.project.loadfile(
+			projectInfo.project.activeFile.path,
+			projectInfo.project.activeFile.activeSheet,
+			projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet]);
+	}
+	if (ImGui::Checkbox("Stop at empty row", &projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet].stopAtEmpty)) {
+		projectInfo.project.loadfile(
+			projectInfo.project.activeFile.path,
+			projectInfo.project.activeFile.activeSheet,
+			projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet]);
 	}
 }

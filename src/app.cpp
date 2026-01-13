@@ -62,6 +62,7 @@ void App::initRaylib(const char* name){
 	if (m_windowSettings.maximized) {
 		MaximizeWindow();
 	}
+	SetExitKey(0);
 	logging::loginfo("[App::initRaylib] Raylib initialized!");
 }
 
@@ -123,7 +124,7 @@ void App::loadDefaults(){
 	m_windowSettings.width = 640;
 	m_windowSettings.height = 480;
 	m_windowSettings.fps = 60;
-	m_windowSettings.vsync = false;
+	m_windowSettings.vsync = true;
 	m_windowSettings.maximized = false;
 	m_windowSettings.posx = 0;
 	m_windowSettings.posy = 0;

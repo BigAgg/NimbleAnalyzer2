@@ -10,7 +10,7 @@ static const char* SETTINGS_FILE = "project.na";
 namespace fl = fileloader;
 
 // loading functions predefs
-SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int row = -1);
+SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings sheetSettings = {});
 
 void SheetTable::clear() {
 	name.clear();
@@ -51,7 +51,7 @@ void Project::load(const std::string& name, const std::string& path){
 	loaded = true;
 }
 
-void Project::loadfile(const std::string& path, const std::string& sheet) {
+void Project::loadfile(const std::string& path, const std::string& sheet, SheetSettings sheetSettings) {
 	if (path == "")
 		return;
 	if (!fl::exists(path)) {
@@ -62,7 +62,7 @@ void Project::loadfile(const std::string& path, const std::string& sheet) {
 		}
 		return;
 	}
-	activeFile = load_sheet(path, sheet);
+	activeFile = load_sheet(path, sheet, sheetSettings);
 }
 
 void Project::addfile(const std::string& path){
@@ -120,7 +120,7 @@ void MergeInfo::clear() {
 }
 
 // loading functions defs
-SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int row) {
+SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings sheetSettings) {
 	Timer t;
 	t.Start();
 	// Setting variables
@@ -144,23 +144,30 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int
 		ws = wb.sheet_by_title(sheet);
 	}
 	// Retrieve the header row by finding "Data"
-	std::size_t headerIndex = 0;
-	std::size_t indexer = 0;
+	int headerIndex = -1;
 	auto rows = ws.rows(false);
-	if (row < 0) {
-		for (auto row : rows) {
-			if (row[0].to_string() == "DATA") {
-				headerIndex = indexer;
+	if (sheetSettings.dataRow < 0) {
+		sheetSettings.dataRow = 0;
+		for (auto r : rows) {
+			if (r[0].to_string() == "DATA") {
+				headerIndex = sheetSettings.dataRow;
 				break;
 			}
-			indexer++;
+			sheetSettings.dataRow++;
 		}
 	}
 	else {
-		headerIndex = row;
+		headerIndex = sheetSettings.dataRow;
 	}
-	if (headerIndex < 0)
+	table.loaded = true;
+	table.path = filePath;
+	table.name = fl::getFilename(filePath);
+	table.activeSheet = ws.title();
+	table.sheetRows.insert({ ws.title(), sheetSettings });
+	if (headerIndex < 0) {
 		return table;
+	}
+
 
 	// Retrieving headers
 	std::unordered_map<std::string, std::uint32_t> seen;
@@ -179,6 +186,7 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int
 		auto row = rows[r];
 		table.rowCount++;
 		// single cells
+		std::size_t emptyCount = 0;
 		for (std::size_t c = 0; c < table.columns.size(); ++c) {
 			ExcelValue value = std::monostate{};
 			if (c < row.length()) {
@@ -191,23 +199,28 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, int
 					case xlnt::cell_type::boolean:
 						value = cell.value<bool>();
 						break;
-					case xlnt::cell_type::date:
 					case xlnt::cell_type::empty:
+					case xlnt::cell_type::date:
 					case xlnt::cell_type::formula_string:
 					default:
 						value = cell.to_string();
 						break;
 					}
 				}
+				else {
+					emptyCount++;
+				}
 			}
-			table.columns[c].values.push_back(std::move(value));
+			table.columns[c].values.push_back(std::make_pair(std::move(value), to_display(value)));
+		}
+		if (sheetSettings.stopAtEmpty && emptyCount == row.length()) {
+			for (std::size_t c = 0; c < table.columns.size(); ++c) {
+				table.columns[c].values.pop_back();
+			}
+			break;
 		}
 	}
 	
-	table.loaded = true;
-	table.path = filePath;
-	table.name = fl::getFilename(filePath);
-	table.activeSheet = ws.title();
 	t.Stop();
 	logging::loginfo("[project::load_sheet] SheetTable loaded:\n\
 							File:\t\t%s\n\

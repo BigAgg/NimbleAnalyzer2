@@ -15,6 +15,7 @@ public:
 	void contentwindow();
 	void cleanup();
 private:
+	
 	void dataView();
 	void justMerge();
 	void loadProjectsAvail();
