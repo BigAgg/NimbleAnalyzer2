@@ -15,7 +15,6 @@ public:
 	void contentwindow();
 	void cleanup();
 private:
-	
 	void dataView();
 	void justMerge();
 	void loadProjectsAvail();
@@ -24,6 +23,7 @@ private:
 	void projectSelection();
 	void fileSelection();
 	void sheetSelection();
+	void filterRows();
 	
 	ViewMode viewmode = ViewMode::ProjectSelection;
 };

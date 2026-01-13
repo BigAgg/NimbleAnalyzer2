@@ -51,6 +51,8 @@ void NimbleAnalyzer::init(){
 
 static std::string g_search = "";
 static std::string g_search_header = "##NONE_HEADER";
+static std::vector<int> filteredRows;
+
 void NimbleAnalyzer::menubar(){
 	switch (viewmode) {
 	case ViewMode::ProjectSelection:
@@ -66,6 +68,13 @@ void NimbleAnalyzer::menubar(){
 			viewmode = ViewMode::JustMerge;
 		ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
 		ImGui::InputTextWithHint("##search", "search", &g_search);
+		ImGui::SetItemTooltip("Filter settings:\n\
+'<X' Filters for everything smaller X\n\
+'>X' Filters for everything bigger X\n\
+'<min;max>' Filters for everything inbetween min and max\n\
+'%c' At the start of the filter searches for everything that contains your text after\n\
+'!' At the start of the filter searches for everything that does not contain your text after\n\
+No Filters just searches for everything that starts with your searchtext", '%');
 		ImGui::SetNextItemWidth(LISTBOX_WIDTH);
 		if (ImGui::BeginCombo("Search only in header", g_search_header.c_str())) {
 			bool selected = (g_search_header == "##NONE_HEADER");
@@ -128,9 +137,112 @@ void NimbleAnalyzer::cleanup(){
 	projectInfo.clear();
 }
 
+static bool RowMatchesFilter(int r) {
+		bool skip = true;
+		if (!g_search.empty()) {
+			for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
+				const auto& cell = projectInfo.project.activeFile.columns[c].values[r];
+				if (g_search_header != "##NONE_HEADER" && g_search_header != header_label(projectInfo.project.activeFile.columns[c].key))
+					continue;
+				if (g_search.starts_with("<") && g_search.ends_with(">")) {
+					auto* i = std::get_if<std::int64_t>(&cell.first);
+					auto* d = std::get_if<double>(&cell.first);
+					std::string s = g_search;
+					s = normalize_decimal(s);
+					s.erase(0, 1);
+					s.erase(s.size() - 1, 1);
+					auto split = Splitlines(s, ";");
+					double value1;
+					double value2;
+					auto result = std::from_chars(split.first.data(), split.first.data() + split.first.size(), value1);
+					if (!(result.ec == std::errc() && result.ptr == split.first.data() + split.first.size())) {
+						continue;
+					}
+					result = std::from_chars(split.second.data(), split.second.data() + split.second.size(), value2);
+					if (!(result.ec == std::errc() && result.ptr == split.second.data() + split.second.size())) {
+						continue;
+					}
+					if (i && *i > value1 && *i < value2) {
+						skip = false;
+						break;
+					}
+					else if(d && *d > value1 && *d < value2) {
+						skip = false;
+						break;
+					}
+				}
+				else if (g_search.starts_with("<")) {
+					auto* i = std::get_if<std::int64_t>(&cell.first);
+					auto* d = std::get_if<double>(&cell.first);
+					std::string s = g_search;
+					s = normalize_decimal(s);
+					s.erase(0, 1);
+					double value;
+					auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+					if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
+						continue;
+					}
+					if (i && *i < value) {
+						skip = false;
+						break;
+					}
+					else if(d && *d < value) {
+						skip = false;
+						break;
+					}
+				}
+				else if (g_search.starts_with(">")) {
+					auto* i = std::get_if<std::int64_t>(&cell.first);
+					auto* d = std::get_if<double>(&cell.first);
+					std::string s = g_search;
+					s = normalize_decimal(s);
+					s.erase(0, 1);
+					double value;
+					auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+					if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
+						continue;
+					}
+					if (i && *i > value) {
+						skip = false;
+						break;
+					}
+					else if(d && *d > value) {
+						skip = false;
+						break;
+					}
+				}
+				else if (g_search.starts_with("!")) {
+					std::string s = g_search;
+					s.erase(0, 1);
+					if (!cell.second.contains(s)) {
+						skip = false;
+					}
+					else {
+						skip = true;
+						break;
+					}
+				}
+				else if (g_search.starts_with("%")) {
+					std::string s = g_search;
+					s.erase(0, 1);
+					if (cell.second.contains(s)) {
+						skip = false;
+						break;
+					}
+				}
+				else if (cell.second.starts_with(g_search)) {
+					skip = false;
+					break;
+				}
+			}
+		}
+		else
+			skip = false;
+		return !skip;
+}
+
 static struct ActiveCell { int row = -1; int col = -1; };
 static ActiveCell g_active;
-
 void NimbleAnalyzer::dataView(){
 	static std::unordered_map<CellKey, std::string, CellKeyHash> editBuf;
 
@@ -154,94 +266,14 @@ void NimbleAnalyzer::dataView(){
 		}
 		ImGui::TableHeadersRow();
 
+		filterRows();
+
 		ImGuiListClipper clipper;
-		clipper.Begin((int)projectInfo.project.activeFile.rowCount);
+		clipper.Begin((int)filteredRows.size());
 
 		while (clipper.Step()) {
-			for (int r = clipper.DisplayStart; r < clipper.DisplayEnd; ++r) {
-				bool skip = true;
-				if (!g_search.empty()) {
-					for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
-						const auto& cell = projectInfo.project.activeFile.columns[c].values[r];
-						if (g_search_header != "##NONE_HEADER" && g_search_header != header_label(projectInfo.project.activeFile.columns[c].key))
-							continue;
-						if (g_search.starts_with("<") && g_search.ends_with(">")) {
-							auto* i = std::get_if<std::int64_t>(&cell.first);
-							auto* d = std::get_if<double>(&cell.first);
-							std::string s = g_search;
-							s = normalize_decimal(s);
-							s.erase(0, 1);
-							s.erase(s.size() - 1, 1);
-							auto split = Splitlines(s, ";");
-							double value1;
-							double value2;
-							auto result = std::from_chars(split.first.data(), split.first.data() + split.first.size(), value1);
-							if (!(result.ec == std::errc() && result.ptr == split.first.data() + split.first.size())) {
-								continue;
-							}
-							result = std::from_chars(split.second.data(), split.second.data() + split.second.size(), value2);
-							if (!(result.ec == std::errc() && result.ptr == split.second.data() + split.second.size())) {
-								continue;
-							}
-							if (i && *i > value1 && *i < value2) {
-								skip = false;
-								break;
-							}
-							else if(d && *d > value1 && *d < value2) {
-								skip = false;
-								break;
-							}
-						}
-						else if (g_search.starts_with("<")) {
-							auto* i = std::get_if<std::int64_t>(&cell.first);
-							auto* d = std::get_if<double>(&cell.first);
-							std::string s = g_search;
-							s = normalize_decimal(s);
-							s.erase(0, 1);
-							double value;
-							auto result = std::from_chars(s.data(), s.data() + s.size(), value);
-							if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
-								continue;
-							}
-							if (i && *i < value) {
-								skip = false;
-								break;
-							}
-							else if(d && *d < value) {
-								skip = false;
-								break;
-							}
-						}
-						else if (g_search.starts_with(">")) {
-							auto* i = std::get_if<std::int64_t>(&cell.first);
-							auto* d = std::get_if<double>(&cell.first);
-							std::string s = g_search;
-							s = normalize_decimal(s);
-							s.erase(0, 1);
-							double value;
-							auto result = std::from_chars(s.data(), s.data() + s.size(), value);
-							if (!(result.ec == std::errc() && result.ptr == s.data() + s.size())) {
-								continue;
-							}
-							if (i && *i > value) {
-								skip = false;
-								break;
-							}
-							else if(d && *d > value) {
-								skip = false;
-								break;
-							}
-						}
-						else if (cell.second.contains(g_search)) {
-							skip = false;
-							break;
-						}
-					}
-				}
-				else
-					skip = false;
-				if (skip)
-					continue;
+			for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+				int r = filteredRows[i];
 				ImGui::TableNextRow();
 				for (int c = 0; c < (int)projectInfo.project.activeFile.columns.size(); ++c) {
 					ImGui::TableSetColumnIndex(c);
@@ -259,10 +291,12 @@ void NimbleAnalyzer::dataView(){
 					const bool isActive = (g_active.row == r && g_active.col == c);
 
 					if (!isActive) {
+						ImGui::PushID(&cell);
 						if(ImGui::Selectable(cell.second.c_str())){
 							g_active = { r, c };
 							ImGui::SetKeyboardFocusHere();
 						}
+						ImGui::PopID();
 					}
 					else {
 						ImGuiInputTextFlags inputFlags =
@@ -434,5 +468,15 @@ void NimbleAnalyzer::sheetSelection(){
 			projectInfo.project.activeFile.path,
 			projectInfo.project.activeFile.activeSheet,
 			projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet]);
+	}
+}
+
+void NimbleAnalyzer::filterRows(){
+	filteredRows.clear();
+	filteredRows.reserve((int)projectInfo.project.activeFile.rowCount);
+
+	for (int r = 0; r < (int)projectInfo.project.activeFile.rowCount; ++r) {
+		if (RowMatchesFilter(r))
+			filteredRows.push_back(r);
 	}
 }
