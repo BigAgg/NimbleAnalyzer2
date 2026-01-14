@@ -451,23 +451,24 @@ void NimbleAnalyzer::sheetSelection(){
 				projectInfo.project.save();
 				projectInfo.project.loadfile(
 					projectInfo.project.activeFile.path,
-					sheet,
-					projectInfo.project.activeFile.sheetRows[sheet]);
+					sheet
+				);
 			}
 		}
 		ImGui::EndListBox();
 	}
-	if (ImGui::InputInt("Header Row", &projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet].dataRow)) {
+	SheetSettings* ss = projectInfo.project.getCurrentSettingsHandle();
+	if (ImGui::InputInt("Header Row", &ss->dataRow)) {
 		projectInfo.project.loadfile(
 			projectInfo.project.activeFile.path,
-			projectInfo.project.activeFile.activeSheet,
-			projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet]);
+			projectInfo.project.activeFile.activeSheet
+		);
 	}
-	if (ImGui::Checkbox("Stop at empty row", &projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet].stopAtEmpty)) {
+	if (ImGui::Checkbox("Stop at empty row", &ss->stopAtEmpty)) {
 		projectInfo.project.loadfile(
 			projectInfo.project.activeFile.path,
-			projectInfo.project.activeFile.activeSheet,
-			projectInfo.project.activeFile.sheetRows[projectInfo.project.activeFile.activeSheet]);
+			projectInfo.project.activeFile.activeSheet
+		);
 	}
 }
 

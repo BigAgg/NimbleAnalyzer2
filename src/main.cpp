@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
 #endif
   try {
 	App app;
-	app.init("App");
+	app.init("NimbleAnalyzer");
 	app.run();
   }
   catch (std::exception& e) {

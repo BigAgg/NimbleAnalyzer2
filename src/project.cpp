@@ -3,14 +3,16 @@
 #include "logging.h"
 #include "utils.h"
 #include "fileloader.h"
+#include <tinyxml2.h>
 #include <xlnt/xlnt.hpp>
 #include <xlnt/xlnt_config.hpp>
 
 static const char* SETTINGS_FILE = "project.na";
+static const char* SHEET_SETTINGS_FILE = "sheets.na";
 namespace fl = fileloader;
 
 // loading functions predefs
-SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings sheetSettings = {});
+SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
 void SheetTable::clear() {
 	name.clear();
@@ -21,6 +23,7 @@ void SheetTable::clear() {
 }
 
 void Project::load(const std::string& name, const std::string& path){
+	clear();
 	this->name = name;
 	this->path = path;
 	const std::string filepath = fl::u8path(path + "/" + SETTINGS_FILE);
@@ -44,15 +47,15 @@ void Project::load(const std::string& name, const std::string& path){
 		}
 		// Getting last selected file
 		if (line.starts_with("selected_file = ")) {
+			load_all_sheetsettings();
 			loadfile(Splitlines(line, " = ").second);
 		}
 	}
-
 	loaded = true;
 }
 
-void Project::loadfile(const std::string& path, const std::string& sheet, SheetSettings sheetSettings) {
-	if (path == "")
+void Project::loadfile(const std::string& path, const std::string& sheet) {
+	if (path.empty())
 		return;
 	if (!fl::exists(path)) {
 		auto it = std::find(files.begin(), files.end(), path);
@@ -62,7 +65,18 @@ void Project::loadfile(const std::string& path, const std::string& sheet, SheetS
 		}
 		return;
 	}
-	activeFile = load_sheet(path, sheet, sheetSettings);
+	//load_all_sheetsettings();
+	SheetSettings ss = {};
+	auto it = sheetSettings.find(sheet_key(path, sheet));
+	if (it != sheetSettings.end()) {
+		activeFile = load_sheet(path, sheet, it->second);
+	}
+	else {
+		activeFile = load_sheet(path, sheet, ss);
+		const std::string sn = activeFile.activeSheet;
+		sheetSettings[sheet_key(path, sn)] = ss;
+	}
+	save_all_sheetsettings();
 }
 
 void Project::addfile(const std::string& path){
@@ -94,12 +108,14 @@ void Project::clear(){
 	path.clear();
 	files.clear();
 	activeFile.clear();
-	mergeInfos.clear();
-	activeMergeInfo.clear();
+	sheetSettingsLoaded = false;
+	sheetSettings.clear();
+	activeFile = {};
 	loaded = false;
 }
 
 void Project::save() {
+	save_all_sheetsettings();
 	const std::string filepath = fl::u8path(path + "/" + SETTINGS_FILE);
 	std::ofstream file(filepath, std::ios::binary);
 	if (!file) {
@@ -115,12 +131,88 @@ void Project::save() {
 	file << "selected_file = " << activeFile.path << "\n";
 }
 
-void MergeInfo::clear() {
-	name.clear();
+void Project::load_all_sheetsettings(){
+	sheetSettingsLoaded = true;
+	sheetSettings.clear();
+
+	const std::string filename = fl::u8path(path + "/" + SHEET_SETTINGS_FILE);
+	std::ifstream in(filename, std::ios::binary);
+	if (!in) return; // no settings yet is fine
+
+	std::string line;
+
+	auto read_value = [](const std::string& s) -> std::string {
+		auto p = Splitlines(s, " = ");
+		return p.second;
+		};
+
+	int expectedCount = -1;
+	while (std::getline(in, line))
+	{
+		ReplaceAllSubstrings(line, "\r", "");
+		ReplaceAllSubstrings(line, "\n", "");
+		if (line.empty()) continue;
+
+		if (line.starts_with("count = "))
+		{
+			expectedCount = std::stoi(read_value(line));
+			continue;
+		}
+
+		if (line == "BEGIN")
+		{
+			std::string file, sheet;
+			SheetSettings ss;
+
+			while (std::getline(in, line))
+			{
+				ReplaceAllSubstrings(line, "\r", "");
+				ReplaceAllSubstrings(line, "\n", "");
+				if (line == "END") break;
+
+				if (line.starts_with("file = ")) file = read_value(line);
+				else if (line.starts_with("sheet = ")) sheet = read_value(line);
+				else if (line.starts_with("dataRow = ")) ss.dataRow = std::stoi(read_value(line));
+				else if (line.starts_with("stopAtEmpty = ")) ss.stopAtEmpty = (read_value(line) == "1");
+			}
+
+			if (!file.empty() && !sheet.empty())
+				sheetSettings[sheet_key(file, sheet)] = ss;
+		}
+	}
+}
+
+void Project::save_all_sheetsettings() const{
+	const std::string filename = fl::u8path(path + "/" + SHEET_SETTINGS_FILE);
+	std::ofstream out(filename, std::ios::binary);
+	if (!out) return;
+
+	out << "version = 1\n";
+	out << "count = " << sheetSettings.size() << "\n";
+
+	for (const auto& [k, ss] : sheetSettings)
+	{
+		// split key back into file + sheet
+		auto pos = k.find('\n');
+		if (pos == std::string::npos) continue;
+		std::string file = k.substr(0, pos);
+		std::string sheet = k.substr(pos + 1);
+
+		out << "BEGIN\n";
+		out << "file = " << file << "\n";
+		out << "sheet = " << sheet << "\n";
+		out << "dataRow = " << ss.dataRow << "\n";
+		out << "stopAtEmpty = " << (ss.stopAtEmpty ? 1 : 0) << "\n";
+		out << "END\n";
+	}
+}
+
+std::string Project::sheet_key(const std::string& file, const std::string& sheet){
+	return file + "\n" + sheet;
 }
 
 // loading functions defs
-SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings sheetSettings) {
+SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings) {
 	Timer t;
 	t.Start();
 	// Setting variables
@@ -159,11 +251,11 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 	else {
 		headerIndex = sheetSettings.dataRow;
 	}
+	sheetSettings.dataRow = headerIndex;
 	table.loaded = true;
 	table.path = filePath;
 	table.name = fl::getFilename(filePath);
 	table.activeSheet = ws.title();
-	table.sheetRows.insert({ ws.title(), sheetSettings });
 	if (headerIndex < 0) {
 		return table;
 	}

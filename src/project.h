@@ -103,7 +103,6 @@ public:
 	std::string path;
 	std::string activeSheet;
 	std::vector<std::string> sheets;
-	std::unordered_map<std::string, SheetSettings> sheetRows;
 	std::size_t rowCount = 0;
 	std::vector<Column> columns;
 	std::unordered_map<std::string, std::vector<ColId>> byName;
@@ -119,24 +118,26 @@ public:
 	}
 };
 
-struct MergeInfo {
-	std::string name;
-	void clear();
-};
-
 struct Project {
 	std::string name;
 	std::string path;
 	std::vector<std::string> files;
+	std::unordered_map<std::string, SheetSettings> sheetSettings;
 	SheetTable activeFile;
-	std::vector<std::string> mergeInfos;
-	MergeInfo activeMergeInfo;
 	bool loaded = false;
 
 	void load(const std::string& name, const std::string& path);
-	void loadfile(const std::string& path, const std::string& sheet = "", SheetSettings sheetSettings = {});
+	void loadfile(const std::string& path, const std::string& sheet = "");
 	void addfile(const std::string& path);
 	void removefile(const std::string& path);
 	void clear();
 	void save();
+	SheetSettings* getCurrentSettingsHandle() {
+		return &sheetSettings[sheet_key(activeFile.path, activeFile.activeSheet)];
+	}
+private:
+	static std::string sheet_key(const std::string& file, const std::string& sheet);
+	bool sheetSettingsLoaded = false;
+	void load_all_sheetsettings();
+	void save_all_sheetsettings() const;
 };
