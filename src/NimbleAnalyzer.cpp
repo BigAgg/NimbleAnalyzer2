@@ -118,8 +118,9 @@ void NimbleAnalyzer::contentwindow(){
 		ImGui::BeginChild("Sheet selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
 		sheetSelection();
 		ImGui::EndChild();
-		ImGui::BeginChild("Merge settings file", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
-		sheetSelection();
+		ImGui::SameLine();
+		ImGui::BeginChild("Show headers", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+		showHeaders();
 		ImGui::EndChild();
 		break;
 	case ViewMode::DataView:
@@ -446,7 +447,7 @@ void NimbleAnalyzer::fileSelection(){
 void NimbleAnalyzer::sheetSelection(){
 	if (!projectInfo.project.loaded || !projectInfo.project.activeFile.loaded)
 		return;
-	ImGui::Text("Sheets");
+	ImGui::TextUnformatted("Sheets");
 	if (ImGui::BeginListBox("## Sheet Selection", { LISTBOX_WIDTH, LISTBOX_HEIGHT })) {
 		for (const auto& sheet : projectInfo.project.activeFile.sheets) {
 			bool selected = (sheet == projectInfo.project.activeFile.activeSheet);
@@ -472,6 +473,19 @@ void NimbleAnalyzer::sheetSelection(){
 			projectInfo.project.activeFile.path,
 			projectInfo.project.activeFile.activeSheet
 		);
+	}
+}
+
+void NimbleAnalyzer::showHeaders(){
+	if (!projectInfo.project.loaded || !projectInfo.project.activeFile.loaded)
+		return;
+	ImGui::TextUnformatted("Headers found");
+	if (ImGui::BeginListBox("## Show Headers", { LISTBOX_WIDTH, LISTBOX_HEIGHT })) {
+		for (const auto& header : projectInfo.project.activeFile.columns) {
+			const std::string label = header_label(header.key);
+			ImGui::Selectable(label.c_str());
+		}
+		ImGui::EndListBox();
 	}
 }
 

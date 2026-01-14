@@ -23,6 +23,7 @@ private:
 	void projectSelection();
 	void fileSelection();
 	void sheetSelection();
+	void showHeaders();
 	void filterRows();
 	
 	ViewMode viewmode = ViewMode::ProjectSelection;

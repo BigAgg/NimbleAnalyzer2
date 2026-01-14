@@ -348,7 +348,7 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 
 static HeaderKey make_header_key(std::unordered_map<std::string, std::uint32_t>& seen, const std::string& raw) {
 	std::string name = fl::csv::trim_ws(raw);
-	if (name.empty()) name = "Unnamed";
+	if (name.empty()) name = "";
 	auto& count = seen[name];
 	HeaderKey k{ name, count };
 	count++;
