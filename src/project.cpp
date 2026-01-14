@@ -13,6 +13,7 @@ namespace fl = fileloader;
 
 // loading functions predefs
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
+SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
 void SheetTable::clear() {
 	name.clear();
@@ -33,6 +34,8 @@ void Project::load(const std::string& name, const std::string& path){
 		return;
 	}
 	std::string line;
+	std::string fileToLoad;
+	std::string sheetToLoad;
 	while (std::getline(file, line)) {
 		// Replacing the newline
 		ReplaceAllSubstrings(line, "\n", "");
@@ -47,10 +50,15 @@ void Project::load(const std::string& name, const std::string& path){
 		}
 		// Getting last selected file
 		if (line.starts_with("selected_file = ")) {
-			load_all_sheetsettings();
-			loadfile(Splitlines(line, " = ").second);
+			fileToLoad = Splitlines(line, " = ").second;
+		}
+		if (line.starts_with("selected_sheet = ")) {
+			sheetToLoad = Splitlines(line, " = ").second;
 		}
 	}
+	load_all_sheetsettings();
+	if (!fileToLoad.empty() && !sheetToLoad.empty())
+		loadfile(fileToLoad, sheetToLoad);
 	loaded = true;
 }
 
@@ -65,9 +73,23 @@ void Project::loadfile(const std::string& path, const std::string& sheet) {
 		}
 		return;
 	}
-	//load_all_sheetsettings();
+	// getting active sheet
+	std::string activeSheet = sheet;
+	if (activeSheet == "") {
+		if (path.ends_with(".xlsx") || path.ends_with(".XLSX")) {
+			xlnt::workbook wb;
+			std::ifstream file(fl::u8topath(path), std::ios::binary);
+			if (file) {
+				wb.load(file);
+				activeSheet = wb.active_sheet().title();
+			}
+		}
+		else {
+			activeSheet = "main";
+		}
+	}
 	SheetSettings ss = {};
-	auto it = sheetSettings.find(sheet_key(path, sheet));
+	auto it = sheetSettings.find(sheet_key(path, activeSheet));
 	if (it != sheetSettings.end()) {
 		activeFile = load_sheet(path, sheet, it->second);
 	}
@@ -129,6 +151,7 @@ void Project::save() {
 	}
 	// saving last opened settings
 	file << "selected_file = " << activeFile.path << "\n";
+	file << "selected_sheet = " << activeFile.activeSheet << "\n";
 }
 
 void Project::load_all_sheetsettings(){
@@ -213,6 +236,8 @@ std::string Project::sheet_key(const std::string& file, const std::string& sheet
 
 // loading functions defs
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings) {
+	if (filePath.ends_with(".csv") || filePath.ends_with(".CSV"))
+		return load_sheet_csv(filePath, sheet, sheetSettings);
 	Timer t;
 	t.Start();
 	// Setting variables
@@ -318,5 +343,173 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 							File:\t\t%s\n\
 							Sheet:\t\t%s\n\
 							Time:\t\t%.2fs", table.path.c_str(), table.activeSheet.c_str(), t.GetElapsedSeconds());
+	return table;
+}
+
+static HeaderKey make_header_key(std::unordered_map<std::string, std::uint32_t>& seen, const std::string& raw) {
+	std::string name = fl::csv::trim_ws(raw);
+	if (name.empty()) name = "Unnamed";
+	auto& count = seen[name];
+	HeaderKey k{ name, count };
+	count++;
+	return k;
+}
+
+SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings){
+	if (filePath.ends_with(".xlsx") || filePath.ends_with(".XLSX"))
+		return load_sheet(filePath, sheet, sheetSettings);
+
+	Timer t;
+	t.Start();
+
+	SheetTable table;
+
+	std::ifstream file(fl::u8topath(filePath), std::ios::binary);
+	if (!file)
+	{
+		logging::loginfo("[project::load_sheet_csv] File not found: %s", filePath.c_str());
+		return {};
+	}
+
+	table.sheets.push_back("main");
+	table.loaded = true;
+	table.path = filePath;
+	table.name = fl::getFilename(filePath);
+	table.activeSheet = "main";
+
+	// ---- Read all CSV records (streaming, but we need to find header row first) ----
+	std::vector<std::string> records;
+	records.reserve(256);
+
+	std::string rec;
+	while (fl::csv::read_csv_record(file, rec))
+	{
+		// Strip BOM on first record if present
+		if (records.empty() && rec.size() >= 3 &&
+			(unsigned char)rec[0] == 0xEF && (unsigned char)rec[1] == 0xBB && (unsigned char)rec[2] == 0xBF)
+		{
+			rec.erase(0, 3);
+		}
+		records.push_back(rec);
+	}
+
+	if (records.empty())
+		return table;
+
+	// ---- Determine header row index ----
+	int headerIndex = sheetSettings.dataRow; // interpret as 0-based "header row"
+	if (headerIndex < 0)
+	{
+		// auto: first non-empty record
+		headerIndex = 0;
+		while (headerIndex < (int)records.size() && fl::csv::is_line_empty_or_ws(records[headerIndex]))
+			++headerIndex;
+
+		if (headerIndex >= (int)records.size())
+		{
+			sheetSettings.dataRow = -1;
+			return table;
+		}
+		sheetSettings.dataRow = headerIndex;
+	}
+
+	if (headerIndex < 0 || headerIndex >= (int)records.size())
+	{
+		// invalid header row setting; keep table loaded but empty columns
+		sheetSettings.dataRow = -1;
+		return table;
+	}
+
+	// ---- Parse header row, create columns ----
+	const char delim = fl::csv::sniff_delimiter(records[headerIndex]);
+	auto headerFields = fl::csv::split_csv_fields(records[headerIndex], delim);
+
+	std::unordered_map<std::string, std::uint32_t> seen;
+	table.columns.clear();
+	table.columns.reserve(headerFields.size());
+
+	for (const auto& hf : headerFields)
+	{
+		Column col;
+		col.key = make_header_key(seen, hf);
+		table.columns.push_back(std::move(col));
+	}
+
+	// If header has 0 columns, treat as "no header"
+	if (table.columns.empty())
+		return table;
+
+	// ---- Parse data rows ----
+	const int dataStart = headerIndex + 1;
+	std::size_t rowCount = 0;
+
+	for (int r = dataStart; r < (int)records.size(); ++r)
+	{
+		auto fields = fl::csv::split_csv_fields(records[r], delim);
+
+		// stopAtEmpty: empty row means all fields empty/whitespace (or no fields)
+		bool allEmpty = true;
+		for (const auto& f : fields)
+		{
+			if (!fl::csv::trim_ws(f).empty()) { allEmpty = false; break; }
+		}
+		if (sheetSettings.stopAtEmpty && allEmpty)
+			break;
+
+		// Ensure we have at least as many fields as columns (missing fields => empty)
+		if (fields.size() < table.columns.size())
+			fields.resize(table.columns.size());
+
+		// For extra fields beyond header count: ignore by default
+		// (If you want, you could auto-create extra columns here.)
+
+		for (std::size_t c = 0; c < table.columns.size(); ++c)
+		{
+			std::string s = fl::csv::trim_ws(fields[c]);
+
+			ExcelValue v;
+			if (s.empty())
+			{
+				v = std::monostate{};
+			}
+			else
+			{
+				// Use your existing parsing (which supports comma decimals etc)
+				v = parse_value_auto(s);
+			}
+
+			table.columns[c].values.emplace_back(v, to_display(v));
+		}
+
+		++rowCount;
+	}
+
+	table.rowCount = rowCount;
+
+	// ---- Pad all columns to rowCount (critical for your UI/filter safety) ----
+	for (auto& col : table.columns)
+	{
+		while (col.values.size() < table.rowCount)
+		{
+			ExcelValue v = std::monostate{};
+			col.values.emplace_back(v, to_display(v));
+		}
+	}
+
+	t.Stop();
+	logging::loginfo("[project::load_sheet_csv] SheetTable loaded:\n\
+                        File:\t\t%s\n\
+                        Sheet:\t\t%s\n\
+                        Time:\t\t%.2fs\n\
+                        Rows:\t\t%zu\n\
+                        Cols:\t\t%zu\n\
+                        Delim:\t\t%s",
+		table.path.c_str(),
+		table.activeSheet.c_str(),
+		t.GetElapsedSeconds(),
+		table.rowCount,
+		table.columns.size(),
+		(delim == '\t' ? "\\t" : std::string(1, delim).c_str()));
+
 	return table;
 }

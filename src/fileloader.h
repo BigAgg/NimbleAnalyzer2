@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <fstream>
 
 namespace fileloader {
 	std::vector<std::string> loadfilelines(const std::string& filename, bool printinfo = true);
@@ -22,4 +23,13 @@ namespace fileloader {
 	void copy(const std::string& source, const std::string& dest, bool overwrite=true);
 	void createDirs(const std::string& dirs);
 	void del(const std::string& path);
+
+	// csv loading
+	namespace csv {
+		bool read_csv_record(std::ifstream& in, std::string& out_record);
+		bool is_line_empty_or_ws(const std::string& s);
+		std::string trim_ws(std::string s);
+		std::vector<std::string> split_csv_fields(const std::string& record, char delim);
+		char sniff_delimiter(const std::string& headerLine);
+	};
 };

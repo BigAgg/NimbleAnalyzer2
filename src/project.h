@@ -95,6 +95,7 @@ struct Column {
 struct SheetSettings {
 	int dataRow = -1;
 	bool stopAtEmpty = false;
+	std::string mergepath;
 };
 
 struct SheetTable {

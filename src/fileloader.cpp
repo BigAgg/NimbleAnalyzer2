@@ -185,3 +185,112 @@ void fileloader::del(const std::string& path){
 	fs::path p = fs::u8path(path);
 	fs::remove_all(p);
 }
+
+bool fileloader::csv::read_csv_record(std::ifstream& in, std::string& out_record){
+	out_record.clear();
+	std::string line;
+
+	if (!std::getline(in, line))
+		return false;
+
+	out_record = line;
+
+	// If quotes are unbalanced, keep reading lines (embedded newlines in quoted fields)
+	auto count_quotes = [](const std::string& s) {
+		size_t n = 0;
+		for (char c : s) if (c == '"') ++n;
+		return n;
+		};
+
+	while ((count_quotes(out_record) % 2) == 1)
+	{
+		if (!std::getline(in, line)) break;
+		out_record.push_back('\n');
+		out_record += line;
+	}
+	return true;
+
+}
+
+bool fileloader::csv::is_line_empty_or_ws(const std::string& s){
+	for (unsigned char ch : s) if (!std::isspace(ch)) return false;
+	return true;
+}
+
+std::string fileloader::csv::trim_ws(std::string s){
+	size_t a = 0, b = s.size();
+	while (a < b && std::isspace((unsigned char)s[a])) ++a;
+	while (b > a && std::isspace((unsigned char)s[b - 1])) --b;
+	return s.substr(a, b - a);
+}
+
+std::vector<std::string> fileloader::csv::split_csv_fields(const std::string& record, char delim) {
+	std::vector<std::string> fields;
+	std::string cur;
+	cur.reserve(64);
+
+	bool inQuotes = false;
+	for (size_t i = 0; i < record.size(); ++i)
+	{
+		char ch = record[i];
+
+		if (inQuotes)
+		{
+			if (ch == '"')
+			{
+				// escaped quote?
+				if (i + 1 < record.size() && record[i + 1] == '"')
+				{
+					cur.push_back('"');
+					++i;
+				}
+				else
+				{
+					inQuotes = false;
+				}
+			}
+			else
+			{
+				cur.push_back(ch);
+			}
+		}
+		else
+		{
+			if (ch == '"')
+			{
+				inQuotes = true;
+			}
+			else if (ch == delim)
+			{
+				fields.push_back(cur);
+				cur.clear();
+			}
+			else
+			{
+				cur.push_back(ch);
+			}
+		}
+	}
+	fields.push_back(cur);
+	return fields;
+}
+
+char fileloader::csv::sniff_delimiter(const std::string& headerLine){
+	// Common: ';' in EU locales, ',' in US, '\t' for TSV
+	int commas = 0, semis = 0, tabs = 0;
+	bool inQuotes = false;
+
+	for (size_t i = 0; i < headerLine.size(); ++i)
+	{
+		char ch = headerLine[i];
+		if (ch == '"') inQuotes = !inQuotes;
+		if (inQuotes) continue;
+		if (ch == ',') ++commas;
+		else if (ch == ';') ++semis;
+		else if (ch == '\t') ++tabs;
+	}
+
+	if (tabs >= semis && tabs >= commas) return '\t';
+	if (semis >= commas) return ';';
+	return ',';
+}

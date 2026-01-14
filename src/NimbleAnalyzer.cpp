@@ -118,6 +118,9 @@ void NimbleAnalyzer::contentwindow(){
 		ImGui::BeginChild("Sheet selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
 		sheetSelection();
 		ImGui::EndChild();
+		ImGui::BeginChild("Merge settings file", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+		sheetSelection();
+		ImGui::EndChild();
 		break;
 	case ViewMode::DataView:
 		dataView();
