@@ -24,6 +24,7 @@ private:
 	void fileSelection();
 	void sheetSelection();
 	void showHeaders();
+	void mergeSettings();
 	void filterRows();
 	
 	ViewMode viewmode = ViewMode::ProjectSelection;

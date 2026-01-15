@@ -33,6 +33,8 @@ static struct projectData {
 static struct {
 	std::vector<projectData> projectsAvail;
 	Project project;
+	std::string selectedMerge;
+	std::string newMerge;
 	std::string newProject;
 
 	void clear() {
@@ -121,6 +123,9 @@ void NimbleAnalyzer::contentwindow(){
 		ImGui::SameLine();
 		ImGui::BeginChild("Show headers", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
 		showHeaders();
+		ImGui::EndChild();
+		ImGui::BeginChild("Merge settings", { CHILD_WINDOW_WIDTH * 3, CHILD_WINDOW_HEIGHT * 2}, true);
+		mergeSettings();
 		ImGui::EndChild();
 		break;
 	case ViewMode::DataView:
@@ -462,6 +467,8 @@ void NimbleAnalyzer::sheetSelection(){
 		ImGui::EndListBox();
 	}
 	SheetSettings* ss = projectInfo.project.getCurrentSettingsHandle();
+	if (!ss)
+		return;
 	if (ImGui::InputInt("Header Row", &ss->dataRow)) {
 		projectInfo.project.loadfile(
 			projectInfo.project.activeFile.path,
@@ -487,6 +494,57 @@ void NimbleAnalyzer::showHeaders(){
 		}
 		ImGui::EndListBox();
 	}
+}
+
+void NimbleAnalyzer::mergeSettings(){
+	if (!projectInfo.project.loaded)
+		return;
+	ImGui::SeparatorText("Merge Settings");
+	std::vector<MergeSettings>* msv = projectInfo.project.getCurrentMergeSettingsHandle();
+	if (!msv)
+		return;
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+	ImGui::InputTextWithHint("## new mergesettings", "new merge name", &projectInfo.newMerge);
+	ImGui::SameLine();
+	if (ImGui::Button("Create new setting") && projectInfo.newMerge != "") {
+		bool exists = false;
+		for (const auto& ms : *msv) {
+			if (ms.name == projectInfo.newMerge) {
+				exists = true;
+				break;
+			}
+		}
+		if (!exists) {
+			msv->push_back({ projectInfo.newMerge });
+			projectInfo.newMerge = "";
+		}
+	}
+	ImGui::Text("Available Merge Settings (%d)", msv->size());
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+	if (ImGui::BeginCombo("## Mergesetting", projectInfo.selectedMerge.c_str())) {
+		for (const auto& ms : *msv) {
+			if (ImGui::Selectable(ms.name.c_str())) {
+				projectInfo.selectedMerge = ms.name;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::SameLine();
+	ImGui::PushID(&projectInfo.selectedMerge);
+	if (ImGui::Button("X")) {
+		int i = 0;
+		for (const auto& ms : *msv) {
+			i++;
+			if (projectInfo.selectedMerge == ms.name) {
+				break;
+			}
+		}
+		if (i <= msv->size()) {
+			msv->erase(msv->begin() + i - 1);
+			projectInfo.selectedMerge = "";
+		}
+	}
+	ImGui::PopID();
 }
 
 void NimbleAnalyzer::filterRows(){

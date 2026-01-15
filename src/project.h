@@ -93,9 +93,9 @@ struct Column {
 };
 
 struct SheetSettings {
-	int dataRow = -1;
-	bool stopAtEmpty = false;
-	std::string mergepath;
+	// Data settings
+	int dataRow = -1;	// header row
+	bool stopAtEmpty = false;	// stop if row is empty
 };
 
 struct SheetTable {
@@ -119,11 +119,27 @@ public:
 	}
 };
 
+struct MergeHeaders {
+	HeaderKey srcHeader;
+	HeaderKey dstHeader;
+};
+
+struct MergeSettings {
+	std::string name;
+	std::string mergefolder = "";
+	SheetTable sourceFile = {};
+	SheetSettings sheetSettings = {};
+	MergeHeaders key = {};	// used to only fill row if the key matches
+	bool reverseKey = false;	// used to reverse the key so only import if key is not present
+	std::vector<MergeHeaders> mergeHeaders;
+};
+
 struct Project {
 	std::string name;
 	std::string path;
 	std::vector<std::string> files;
 	std::unordered_map<std::string, SheetSettings> sheetSettings;
+	std::unordered_map<std::string, std::vector<MergeSettings>> mergeSettings;
 	SheetTable activeFile;
 	bool loaded = false;
 
@@ -136,9 +152,14 @@ struct Project {
 	SheetSettings* getCurrentSettingsHandle() {
 		return &sheetSettings[sheet_key(activeFile.path, activeFile.activeSheet)];
 	}
+	std::vector<MergeSettings>* getCurrentMergeSettingsHandle() {
+		return &mergeSettings[sheet_key(activeFile.path, activeFile.activeSheet)];
+	}
 private:
 	static std::string sheet_key(const std::string& file, const std::string& sheet);
 	bool sheetSettingsLoaded = false;
 	void load_all_sheetsettings();
 	void save_all_sheetsettings() const;
+	void load_all_mergesettings();
+	void save_all_mergesettings() const;
 };

@@ -9,6 +9,7 @@
 
 static const char* SETTINGS_FILE = "project.na";
 static const char* SHEET_SETTINGS_FILE = "sheets.na";
+static const char* MERGE_SETTINGS_FILE = "merges.na";
 namespace fl = fileloader;
 
 // loading functions predefs
@@ -91,12 +92,13 @@ void Project::loadfile(const std::string& path, const std::string& sheet) {
 	SheetSettings ss = {};
 	auto it = sheetSettings.find(sheet_key(path, activeSheet));
 	if (it != sheetSettings.end()) {
-		activeFile = load_sheet(path, sheet, it->second);
+		activeFile = load_sheet(path, activeSheet, it->second);
 	}
 	else {
-		activeFile = load_sheet(path, sheet, ss);
+		activeFile = load_sheet(path, activeSheet, ss);
 		const std::string sn = activeFile.activeSheet;
 		sheetSettings[sheet_key(path, sn)] = ss;
+		mergeSettings[sheet_key(path, sn)] = {};
 	}
 	save_all_sheetsettings();
 }
@@ -138,6 +140,7 @@ void Project::clear(){
 
 void Project::save() {
 	save_all_sheetsettings();
+	save_all_mergesettings();
 	const std::string filepath = fl::u8path(path + "/" + SETTINGS_FILE);
 	std::ofstream file(filepath, std::ios::binary);
 	if (!file) {
@@ -227,6 +230,51 @@ void Project::save_all_sheetsettings() const{
 		out << "dataRow = " << ss.dataRow << "\n";
 		out << "stopAtEmpty = " << (ss.stopAtEmpty ? 1 : 0) << "\n";
 		out << "END\n";
+	}
+}
+
+void Project::save_all_mergesettings() const {
+	const std::string filename = fl::u8path(path + "/" + MERGE_SETTINGS_FILE);
+	std::ofstream out(filename, std::ios::binary);
+	if (!out) return;
+
+	out << "version = 1\n";
+	out << "profile_count = " << mergeSettings.size() << "\n";
+
+	for (const auto& [k, ms] : mergeSettings) {
+		auto pos = k.find('\n');
+		if (pos == std::string::npos) continue;
+		std::string file = k.substr(0, pos);
+		std::string sheet = k.substr(pos + 1);
+		out << "BEGIN_PROFILE\n";
+		out << "file = " << file << "\n";
+		out << "sheet = " << sheet << "\n";
+		out << "rule_count = " << ms.size() << "\n";
+		for (const auto& rule : ms) {
+			out << "BEGIN_RULE\n";
+			out << "rule_name = " << rule.name << "\n";
+			out << "mergefolder = " << rule.mergefolder << "\n";
+			out << "src_file = " << rule.sourceFile.path << "\n";
+			out << "src_sheet = " << rule.sourceFile.activeSheet << "\n";
+			out << "dataRow = " << rule.sheetSettings.dataRow << "\n";
+			out << "stopAtEmpty = " << (rule.sheetSettings.stopAtEmpty ? 1 : 0) << "\n";
+			out << "dst_key_name = " << rule.key.dstHeader.name << "\n";
+			out << "dst_key_occ = " << rule.key.dstHeader.occurrence << "\n";
+			out << "src_key_name = " << rule.key.srcHeader.name << "\n";
+			out << "src_key_occ = " << rule.key.srcHeader.occurrence << "\n";
+			out << "reverseKey = " << (rule.reverseKey ? 1 : 0) << "\n";
+			out << "mergeHeaders_count = " << rule.mergeHeaders.size() << "\n";
+			for (const auto& headers : rule.mergeHeaders) {
+				out << "BEGIN_HEADER\n";
+				out << "dst_name = " << headers.dstHeader.name << "\n";
+				out << "dst_occ = " << headers.dstHeader.occurrence << "\n";
+				out << "src_name = " << headers.srcHeader.name << "\n";
+				out << "src_occ = " << headers.srcHeader.occurrence << "\n";
+				out << "END_HEADER\n";
+			}
+			out << "END_RULE\n";
+		}
+		out << "END_PROFILE\n";
 	}
 }
 
