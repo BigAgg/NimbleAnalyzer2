@@ -13,7 +13,6 @@ static const char* MERGE_SETTINGS_FILE = "merges.na";
 namespace fl = fileloader;
 
 // loading functions predefs
-SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
 void SheetTable::clear() {
@@ -57,8 +56,9 @@ void Project::load(const std::string& name, const std::string& path){
 			sheetToLoad = Splitlines(line, " = ").second;
 		}
 	}
+	load_all_mergesettings();
 	load_all_sheetsettings();
-	if (!fileToLoad.empty() && !sheetToLoad.empty())
+	if (fileToLoad != "" && sheetToLoad != "")
 		loadfile(fileToLoad, sheetToLoad);
 	loaded = true;
 }
@@ -98,9 +98,9 @@ void Project::loadfile(const std::string& path, const std::string& sheet) {
 		activeFile = load_sheet(path, activeSheet, ss);
 		const std::string sn = activeFile.activeSheet;
 		sheetSettings[sheet_key(path, sn)] = ss;
-		mergeSettings[sheet_key(path, sn)] = {};
 	}
 	save_all_sheetsettings();
+	save_all_mergesettings();
 }
 
 void Project::addfile(const std::string& path){
@@ -134,6 +134,8 @@ void Project::clear(){
 	activeFile.clear();
 	sheetSettingsLoaded = false;
 	sheetSettings.clear();
+	mergeSettingsLoaded = false;
+	mergeSettings.clear();
 	activeFile = {};
 	loaded = false;
 }
@@ -208,28 +210,94 @@ void Project::load_all_sheetsettings(){
 	}
 }
 
-void Project::save_all_sheetsettings() const{
-	const std::string filename = fl::u8path(path + "/" + SHEET_SETTINGS_FILE);
-	std::ofstream out(filename, std::ios::binary);
-	if (!out) return;
+void Project::load_all_mergesettings() {
+	mergeSettingsLoaded = true;
+	mergeSettings.clear();
 
-	out << "version = 1\n";
-	out << "count = " << sheetSettings.size() << "\n";
+	const std::string filename = fl::u8path(path + "/" + MERGE_SETTINGS_FILE);
+	std::ifstream in(filename, std::ios::binary);
+	if (!in) return;	// no settings yet is fine
 
-	for (const auto& [k, ss] : sheetSettings)
-	{
-		// split key back into file + sheet
-		auto pos = k.find('\n');
-		if (pos == std::string::npos) continue;
-		std::string file = k.substr(0, pos);
-		std::string sheet = k.substr(pos + 1);
+	std::string line;
 
-		out << "BEGIN\n";
-		out << "file = " << file << "\n";
-		out << "sheet = " << sheet << "\n";
-		out << "dataRow = " << ss.dataRow << "\n";
-		out << "stopAtEmpty = " << (ss.stopAtEmpty ? 1 : 0) << "\n";
-		out << "END\n";
+	auto read_value = [](const std::string& s) -> std::string {
+		auto p = Splitlines(s, " = ");
+		logging::loginfo("read_value: line: %s value: %s", s.c_str(), p.second.c_str());
+		return p.second;
+		};
+
+	int expectedCount = -1;
+	while (std::getline(in, line)) {
+		ReplaceAllSubstrings(line, "\r", "");
+		ReplaceAllSubstrings(line, "\n", "");
+		if (line.empty()) continue;
+
+		if (line.starts_with("profile_count = ")) {
+			expectedCount = std::stoi(read_value(line));
+			continue;
+		}
+
+		if (line == "BEGIN_PROFILE") {
+			std::string file;
+			std::string sheet;
+			std::string mergeSettingsKey;
+			while (std::getline(in, line)) {
+				if ((!file.empty() && !sheet.empty()) && mergeSettingsKey.empty()) {
+					mergeSettingsKey = sheet_key(file, sheet);
+					mergeSettings[mergeSettingsKey] = {};
+				}
+				int ruleCount = -1;
+				ReplaceAllSubstrings(line, "\r", "");
+				ReplaceAllSubstrings(line, "\n", "");
+				if (line == "END_PROFILE") {
+					break;
+				}
+				if (line.starts_with("file = ")) file = read_value(line);
+				else if (line.starts_with("sheet = ")) sheet = read_value(line);
+				else if (line.starts_with("rule_count = ")) ruleCount = std::stoi(read_value(line));
+				else if (line == "BEGIN_RULE") {
+					MergeSettings rule;
+					while (std::getline(in, line)) {
+						int expectedHeaders = -1;
+						ReplaceAllSubstrings(line, "\r", "");
+						ReplaceAllSubstrings(line, "\n", "");
+						if (line == "END_RULE") {
+							rule.sourceFile = load_sheet(rule.sourceFile.path, rule.sourceFile.activeSheet, rule.sheetSettings);
+							mergeSettings[mergeSettingsKey].push_back(rule);
+							break;
+						}
+						if (line.starts_with("rule_name = ")) rule.name = read_value(line);
+						else if (line.starts_with("mergefolder = ")) rule.mergefolder = read_value(line);
+						else if (line.starts_with("src_file = ")) rule.sourceFile.path = read_value(line);
+						else if (line.starts_with("src_sheet = ")) rule.sourceFile.activeSheet = read_value(line);
+						else if (line.starts_with("dataRow = ")) rule.sheetSettings.dataRow = std::stoi(read_value(line));
+						else if (line.starts_with("stopAtEmpty = ")) rule.sheetSettings.stopAtEmpty = (read_value(line) == "1");
+						else if (line.starts_with("dst_key_name = ")) rule.key.dstHeader.name = read_value(line);
+						else if (line.starts_with("dst_key_occ = ")) rule.key.dstHeader.occurrence = std::stoi(read_value(line));
+						else if (line.starts_with("src_key_name = ")) rule.key.srcHeader.name = read_value(line);
+						else if (line.starts_with("src_key_occ = ")) rule.key.srcHeader.occurrence = std::stoi(read_value(line));
+						else if (line.starts_with("reverseKey = ")) rule.reverseKey = (read_value(line) == "1");
+						else if (line.starts_with("mergeHeaders_count = ")) expectedHeaders = std::stoi(read_value(line));
+						else if (line == "BEGIN_HEADER") {
+							MergeHeaders headers;
+							while (std::getline(in, line)) {
+								ReplaceAllSubstrings(line, "\r", "");
+								ReplaceAllSubstrings(line, "\n", "");
+
+								if (line == "END_HEADER") {
+									rule.mergeHeaders.push_back(headers);
+									break;
+								}
+								if (line.starts_with("dst_name = ")) headers.dstHeader.name = read_value(line);
+								else if (line.starts_with("dst_occ = ")) headers.dstHeader.occurrence = std::stoi(read_value(line));
+								else if (line.starts_with("src_name = ")) headers.srcHeader.name = read_value(line);
+								else if (line.starts_with("src_occ = ")) headers.srcHeader.occurrence = std::stoi(read_value(line));
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -278,12 +346,39 @@ void Project::save_all_mergesettings() const {
 	}
 }
 
+void Project::save_all_sheetsettings() const{
+	const std::string filename = fl::u8path(path + "/" + SHEET_SETTINGS_FILE);
+	std::ofstream out(filename, std::ios::binary);
+	if (!out) return;
+
+	out << "version = 1\n";
+	out << "count = " << sheetSettings.size() << "\n";
+
+	for (const auto& [k, ss] : sheetSettings)
+	{
+		// split key back into file + sheet
+		auto pos = k.find('\n');
+		if (pos == std::string::npos) continue;
+		std::string file = k.substr(0, pos);
+		std::string sheet = k.substr(pos + 1);
+
+		out << "BEGIN\n";
+		out << "file = " << file << "\n";
+		out << "sheet = " << sheet << "\n";
+		out << "dataRow = " << ss.dataRow << "\n";
+		out << "stopAtEmpty = " << (ss.stopAtEmpty ? 1 : 0) << "\n";
+		out << "END\n";
+	}
+}
+
 std::string Project::sheet_key(const std::string& file, const std::string& sheet){
 	return file + "\n" + sheet;
 }
 
 // loading functions defs
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings) {
+	if (filePath.empty())
+		return {};
 	if (filePath.ends_with(".csv") || filePath.ends_with(".CSV"))
 		return load_sheet_csv(filePath, sheet, sheetSettings);
 	Timer t;

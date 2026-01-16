@@ -380,8 +380,8 @@ void NimbleAnalyzer::projectSelection() {
 			if (ImGui::Selectable(project.name.c_str(), &selected)) {
 				if (projectInfo.project.loaded)
 					projectInfo.project.save();
-				projectInfo.project.clear();
 				projectInfo.project.load(project.name, project.path);
+				projectInfo.selectedMerge.clear();
 			}
 		}
 		ImGui::EndListBox();
@@ -430,6 +430,7 @@ void NimbleAnalyzer::fileSelection(){
 			if (ImGui::Selectable(fl::getFilename(file).c_str(), &selected)) {
 				projectInfo.project.save();
 				projectInfo.project.loadfile(file);
+				projectInfo.selectedMerge.clear();
 			}
 			ImGui::SetItemTooltip(file.c_str());
 		}
@@ -462,6 +463,7 @@ void NimbleAnalyzer::sheetSelection(){
 					projectInfo.project.activeFile.path,
 					sheet
 				);
+				projectInfo.selectedMerge.clear();
 			}
 		}
 		ImGui::EndListBox();
@@ -519,6 +521,7 @@ void NimbleAnalyzer::mergeSettings(){
 			projectInfo.newMerge = "";
 		}
 	}
+	// Combobox to select mergesettings
 	ImGui::Text("Available Merge Settings (%d)", msv->size());
 	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
 	if (ImGui::BeginCombo("## Mergesetting", projectInfo.selectedMerge.c_str())) {
@@ -529,22 +532,147 @@ void NimbleAnalyzer::mergeSettings(){
 		}
 		ImGui::EndCombo();
 	}
+	// Deleting settings
+	// retrieving current selected mergesettings
+	MergeSettings* ms = nullptr;
+	int ms_idx = 0;
+	for (auto& x : *msv) {
+		ms_idx++;
+		if (projectInfo.selectedMerge == x.name) {
+			ms = &x;
+			break;
+		}
+	}
+	if (!ms)
+		return;
 	ImGui::SameLine();
 	ImGui::PushID(&projectInfo.selectedMerge);
-	if (ImGui::Button("X")) {
-		int i = 0;
-		for (const auto& ms : *msv) {
-			i++;
-			if (projectInfo.selectedMerge == ms.name) {
-				break;
-			}
-		}
-		if (i <= msv->size()) {
-			msv->erase(msv->begin() + i - 1);
+	if (ImGui::Button("X") && projectInfo.selectedMerge != "") {
+		if (ms_idx <= msv->size() && ms_idx > 0) {
+			msv->erase(msv->begin() + ms_idx - 1);
 			projectInfo.selectedMerge = "";
 		}
 	}
 	ImGui::PopID();
+	// sourcefile
+	if (ImGui::Button("Add sourcefile")) {
+		std::string path = OpenFileDialog("Excel Sheet", "xlsx,csv");
+		if (path != "") {
+			convertContentToUTF8(&path);
+			ms->sourceFile = load_sheet(path, "", ms->sheetSettings);
+		}
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH / 2);
+	if (ImGui::InputInt("Header Row", &ms->sheetSettings.dataRow)) {
+		ms->sourceFile = load_sheet(ms->sourceFile.path, ms->sourceFile.activeSheet, ms->sheetSettings);
+	}
+	ImGui::SameLine();
+	if (ImGui::Checkbox("Stop at empty row", &ms->sheetSettings.stopAtEmpty)) {
+		ms->sourceFile = load_sheet(ms->sourceFile.path, ms->sourceFile.activeSheet, ms->sheetSettings);
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH / 2);
+	if (ImGui::BeginCombo("Sheet", ms->sourceFile.activeSheet.c_str())) {
+		for (const auto& sheet : ms->sourceFile.sheets) {
+			if (ImGui::Selectable(sheet.c_str())) {
+				ms->sourceFile = load_sheet(ms->sourceFile.path, sheet, ms->sheetSettings);
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::Text("Sourcefile: %s", ms->sourceFile.name.c_str());
+	ImGui::SetItemTooltip("%s", ms->sourceFile.path.c_str());
+	// sourcefolder
+	if (ImGui::Button("Add mergefolder")) {
+		std::string path = OpenDirectoryDialog();
+		if (path != "") {
+			convertContentToUTF8(&path);
+			ms->mergefolder = path;
+		}
+	}
+	if (ms->mergefolder != "") {
+		ImGui::PushID(&ms->mergefolder);
+		ImGui::SameLine();
+		if (ImGui::Button("X")) {
+			ms->mergefolder = "";
+		}
+		ImGui::PopID();
+		ImGui::SameLine();
+		ImGui::Text("%s", ms->mergefolder.c_str());
+	}
+	// Key
+	ImGui::SeparatorText("Header Key");
+	ImGui::TextUnformatted("Src Header key                     Dst Header key");
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+	if (ImGui::BeginCombo("##Dst Header Key", header_label(ms->key.dstHeader).c_str())) {
+		for (const auto& dst_key : projectInfo.project.activeFile.columns) {
+			if (ImGui::Selectable(header_label(dst_key.key).c_str())) {
+				ms->key.dstHeader = dst_key.key;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::SameLine();
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+	if (ImGui::BeginCombo("##Src Header Key", header_label(ms->key.srcHeader).c_str())) {
+		for (const auto& src_key : ms->sourceFile.columns) {
+			if (ImGui::Selectable(header_label(src_key.key).c_str())) {
+				ms->key.srcHeader = src_key.key;
+			}
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::SameLine();
+	ImGui::Checkbox("Reverse header", &ms->reverseKey);
+	ImGui::SetItemTooltip("Sets the key headers to work in reverse.\n\
+Unticked: Only import if the headers value from the src file does NOT exist in dst file\n\
+Ticked: Only import if the headers value from the src file does exist in dst file and fill row with data");
+	// add rules
+	ImGui::SeparatorText("Merging headers");
+	int size = ms->mergeHeaders.size();
+	int old_size = size;
+	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH / 2);
+	if (ImGui::InputInt("Merging rules", &size)) {
+		if (size < 0)
+			size = 0;
+		if (old_size > size) {
+			int diff = old_size - size;
+			for (int i = 0; i < diff; i++) {
+				ms->mergeHeaders.erase(ms->mergeHeaders.end() - 1);
+			}
+		}
+		else if (old_size < size) {
+			int diff = size - old_size;
+			for (int i = 0; i < diff; i++) {
+				ms->mergeHeaders.push_back({});
+			}
+		}
+	}
+	ImGui::TextUnformatted("Src Header key                     Dst Header key");
+	for (auto& headers : ms->mergeHeaders) {
+		ImGui::PushID(&headers);
+		ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+		if (ImGui::BeginCombo("##Dst Header Key", header_label(headers.dstHeader).c_str())) {
+			for (const auto& dst_key : projectInfo.project.activeFile.columns) {
+				if (ImGui::Selectable(header_label(dst_key.key).c_str())) {
+					headers.dstHeader = dst_key.key;
+				}
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::SameLine();
+		ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
+		if (ImGui::BeginCombo("##Src Header Key", header_label(headers.srcHeader).c_str())) {
+			for (const auto& src_key : ms->sourceFile.columns) {
+				if (ImGui::Selectable(header_label(src_key.key).c_str())) {
+					headers.srcHeader = src_key.key;
+				}
+			}
+			ImGui::EndCombo();
+		}
+		ImGui::PopID();
+	}
 }
 
 void NimbleAnalyzer::filterRows(){

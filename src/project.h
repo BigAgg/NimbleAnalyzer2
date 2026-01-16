@@ -158,8 +158,11 @@ struct Project {
 private:
 	static std::string sheet_key(const std::string& file, const std::string& sheet);
 	bool sheetSettingsLoaded = false;
+	bool mergeSettingsLoaded = false;
 	void load_all_sheetsettings();
 	void save_all_sheetsettings() const;
 	void load_all_mergesettings();
 	void save_all_mergesettings() const;
 };
+
+SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
