@@ -166,3 +166,4 @@ private:
 };
 
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
+void MergeTables(SheetTable* dst, const SheetTable* src, const MergeSettings* settings);

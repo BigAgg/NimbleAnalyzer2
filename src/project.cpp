@@ -656,3 +656,7 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 
 	return table;
 }
+
+void MergeTables(SheetTable* dst, const SheetTable* src, const MergeSettings* settings) {
+
+}
