@@ -110,7 +110,7 @@ public:
 	bool loaded = false;
 	void clear();
 
-	const Column* find_column(const std::string& header, std::uint32_t occurrence = 0) {
+	Column* find_column(const std::string& header, std::uint32_t occurrence = 0){
 		auto it = byName.find(header);
 		if (it == byName.end()) return nullptr;
 		if (occurrence >= it->second.size()) return nullptr;
@@ -166,4 +166,17 @@ private:
 };
 
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
-void MergeTables(SheetTable* dst, const SheetTable* src, const MergeSettings* settings);
+
+struct MergeReport {
+	size_t rowsRead = 0;
+	size_t rowsWritten = 0;
+	size_t cellsWritten = 0;
+	size_t rowsAppended = 0;
+	size_t rowsMatched = 0;
+	size_t conflicts = 0;
+	size_t skippedHeaders = 0;
+	std::vector<std::string> warnings;
+	std::vector<std::string> errors;
+};
+
+MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& settings);

@@ -628,6 +628,9 @@ void NimbleAnalyzer::mergeSettings(){
 	ImGui::SetItemTooltip("Sets the key headers to work in reverse.\n\
 Unticked: Only import if the headers value from the src file does NOT exist in dst file\n\
 Ticked: Only import if the headers value from the src file does exist in dst file and fill row with data");
+	if (ImGui::Button("Merge") && ms->sourceFile.loaded) {
+		MergeReport report = MergeTables(projectInfo.project.activeFile, ms->sourceFile, *ms);
+	}
 	// add rules
 	ImGui::SeparatorText("Merging headers");
 	int size = ms->mergeHeaders.size();

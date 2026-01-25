@@ -222,7 +222,6 @@ void Project::load_all_mergesettings() {
 
 	auto read_value = [](const std::string& s) -> std::string {
 		auto p = Splitlines(s, " = ");
-		logging::loginfo("read_value: line: %s value: %s", s.c_str(), p.second.c_str());
 		return p.second;
 		};
 
@@ -657,6 +656,70 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 	return table;
 }
 
-void MergeTables(SheetTable* dst, const SheetTable* src, const MergeSettings* settings) {
+MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& settings) {
+	MergeReport report;
+	Timer t;
+	// Check if there is something to merge. Skip if there is none
+	if (!dst.loaded || !src.loaded)
+		return report;
+	if (dst.columns.empty() || src.columns.empty())
+		return report;
+	if (settings.mergeHeaders.empty())
+		return report;
+	t.Start();
+	size_t startRowsize = dst.rowCount;
+	const bool useKey = (!settings.key.dstHeader.name.empty() && !settings.key.srcHeader.name.empty());
+	if (useKey) {
 
+	}
+	else {
+		// looping all merge header rules
+		for (const auto& header : settings.mergeHeaders) {
+			Column* dstCol = dst.find_column(header.dstHeader.name, header.dstHeader.occurrence);
+			Column* srcCol = src.find_column(header.srcHeader.name, header.srcHeader.occurrence);
+			// Handle nullptrs (column not found)
+			if (!dstCol || !srcCol) {
+				report.skippedHeaders++;
+				report.conflicts++;
+				if (!dstCol)
+					report.warnings.push_back("Skipped Header: Destination Header not found: " + header_label(header.dstHeader));
+				if (!srcCol)
+					report.warnings.push_back("Skipped Header: Source Header not found: " + header_label(header.srcHeader));
+				continue;
+			}
+			for (auto& value : srcCol->values) {
+				dstCol->values.emplace_back(value.first, value.second);
+				++dst.rowCount;
+			}
+		}
+	}
+	report.rowsAppended = dst.rowCount - startRowsize;
+	t.Stop();
+	logging::loginfo("[project::MergeTables] Tables merged:\n\
+					Destination:\t%s\n\
+					Source:\t\t%s\n\
+					Time:\t\t\t%.2fms (%.2fS)\n\
+					MergeReport:\n\
+							Rows read:\t\t\t%zu\n\
+							Rows written:\t\t %zu\n\
+							Cells written:\t\t%zu\n\
+							Rows appended:\t\t%zu\n\
+							Rows matched:\t\t %zu\n\
+							Conflicts:\t\t\t%zu\n\
+							Skipped headers:\t  %zu\n\
+							Warnings:\t\t\t %zu\n\
+							Errors:\t\t\t   %zu",
+		dst.name.c_str(),
+		src.name.c_str(),
+		t.GetElapsedMilliseconds(), t.GetElapsedSeconds(),
+		report.rowsRead,
+		report.rowsWritten,
+		report.cellsWritten,
+		report.rowsAppended,
+		report.rowsMatched,
+		report.conflicts,
+		report.skippedHeaders,
+		report.warnings.size(),
+		report.errors.size());
+	return report;
 }
