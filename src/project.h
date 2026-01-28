@@ -167,6 +167,16 @@ private:
 
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
+struct SaveReport {
+	size_t cellsWritten = 0;
+	size_t cellsSkipped = 0;
+	size_t conflicts = 0;
+	std::vector<std::string> warnings;
+	std::vector<std::string> errors;
+};
+
+SaveReport save_sheet(const std::string& filePath, SheetTable& table, const SheetSettings& ss);
+
 struct MergeReport {
 	std::string type = "";
 	size_t rowsRead = 0;

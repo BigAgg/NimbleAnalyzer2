@@ -658,6 +658,225 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 	return table;
 }
 
+static std::string csv_escape(const std::string& s, char delim)
+{
+	// RFC4180-ish escaping:
+	// If field contains delim, quote, or newline => wrap in quotes and escape quotes as ""
+	bool needQuotes = false;
+	for (char ch : s)
+	{
+		if (ch == delim || ch == '"' || ch == '\n' || ch == '\r')
+		{
+			needQuotes = true;
+			break;
+		}
+	}
+	if (!needQuotes) return s;
+
+	std::string out;
+	out.reserve(s.size() + 8);
+	out.push_back('"');
+	for (char ch : s)
+	{
+		if (ch == '"') out += "\"\"";
+		else out.push_back(ch);
+	}
+	out.push_back('"');
+	return out;
+}
+
+static void write_csv_line(std::ostream& out, const std::vector<std::string>& fields, char delim)
+{
+	for (size_t i = 0; i < fields.size(); ++i)
+	{
+		if (i) out << delim;
+		out << csv_escape(fields[i], delim);
+	}
+	out << "\n";
+}
+
+static void set_xlnt_cell_value(xlnt::cell& c, const ExcelValue& v)
+{
+	if (std::holds_alternative<std::monostate>(v))
+	{
+		// keep formatting, clear value
+		c.clear_value();
+		return;
+	}
+	if (auto* d = std::get_if<double>(&v)) { c.value(*d); return; }
+	if (auto* i = std::get_if<std::int64_t>(&v)) { c.value(static_cast<long long>(*i)); return; }
+	if (auto* b = std::get_if<bool>(&v)) { c.value(*b); return; }
+	if (auto* s = std::get_if<std::string>(&v)) { c.value(*s); return; }
+
+	// fallback
+	c.value(to_display(v));
+}
+
+
+SaveReport save_sheet(const std::string& filePath, SheetTable& table, const SheetSettings& ss)
+{
+	SaveReport report;
+
+	if (filePath.empty())
+	{
+		report.errors.push_back("save_sheet: empty filePath");
+		return report;
+	}
+	if (!table.loaded || table.columns.empty())
+	{
+		report.errors.push_back("save_sheet: table not loaded or has no columns");
+		return report;
+	}
+
+	// Ensure rectangular data (critical for correctness)
+	for (auto& col : table.columns)
+	{
+		while (col.values.size() < table.rowCount)
+		{
+			ExcelValue v = std::monostate{};
+			col.values.emplace_back(v, to_display(v));
+		}
+	}
+
+	// ---------------- CSV ----------------
+	if (filePath.ends_with(".csv") || filePath.ends_with(".CSV"))
+	{
+		// Use ';' because you display decimal comma.
+		const char delim = ';';
+
+		std::ofstream out(fl::u8topath(filePath), std::ios::binary | std::ios::trunc);
+		if (!out)
+		{
+			report.errors.push_back("save_sheet: could not open CSV for writing: " + filePath);
+			return report;
+		}
+
+		// CSV cannot preserve "rows above header" unless you stored them; export as a clean table.
+		// header row:
+		{
+			std::vector<std::string> hdr;
+			hdr.reserve(table.columns.size());
+			for (const auto& col : table.columns)
+			{
+				// Keep the original header name; if you want to disambiguate duplicates in CSV use header_label(col.key)
+				hdr.push_back(col.key.name);
+			}
+			write_csv_line(out, hdr, delim);
+		}
+
+		// data rows:
+		for (size_t r = 0; r < table.rowCount; ++r)
+		{
+			std::vector<std::string> row;
+			row.reserve(table.columns.size());
+
+			for (size_t c = 0; c < table.columns.size(); ++c)
+			{
+				const auto& cell = table.columns[c].values[r];
+				row.push_back(cell.second); // cached display string
+			}
+
+			write_csv_line(out, row, delim);
+		}
+
+		report.cellsWritten = table.rowCount * table.columns.size();
+		return report;
+	}
+
+	// ---------------- XLSX ----------------
+	try
+	{
+		xlnt::workbook wb;
+
+		// Load existing workbook if present (so rows above header can be preserved)
+		{
+			std::ifstream in(fl::u8topath(filePath), std::ios::binary);
+			if (in) wb.load(in);
+		}
+
+		std::string sheetTitle = table.activeSheet.empty() ? "main" : table.activeSheet;
+
+		xlnt::worksheet ws;
+		{
+			bool exists = false;
+			for (const auto& t : wb.sheet_titles())
+			{
+				if (t == sheetTitle) { exists = true; break; }
+			}
+			if (exists) ws = wb.sheet_by_title(sheetTitle);
+			else
+			{
+				ws = wb.active_sheet();
+				ws.title(sheetTitle);
+			}
+		}
+
+		// Decide header row position using SheetSettings.
+		// IMPORTANT: Your current loader increments dataRow starting from 0, so treat dataRow as 0-based.
+		// If in your UI it is 1-based, change to: excelHeaderRow = (ss.dataRow <= 0 ? 1 : (size_t)ss.dataRow);
+		const std::size_t excelHeaderRow = (ss.dataRow >= 0) ? (std::size_t(ss.dataRow) + 1) : 1;
+		const std::size_t excelDataStart = excelHeaderRow + 1;
+
+		const std::size_t newMaxRow = excelHeaderRow + table.rowCount; // header row + data rows below
+		const std::size_t newMaxCol = table.columns.size();
+
+		// Clear only the table region (from header row down), preserve everything above it.
+		{
+			const std::size_t oldMaxRow = (std::size_t)ws.highest_row();
+
+			// In some xlnt forks this is highest_column_or_props(); if highest_column() doesn't compile, swap it.
+			const std::size_t oldMaxCol = ws.highest_column().index;
+
+			const std::size_t clearRows = std::max(oldMaxRow, newMaxRow);
+			const std::size_t clearCols = std::max(oldMaxCol, newMaxCol);
+
+			for (std::size_t r = excelHeaderRow; r <= clearRows; ++r)
+			{
+				for (std::size_t c = 1; c <= clearCols; ++c)
+				{
+					ws.cell(xlnt::cell_reference((int)c, (int)r)).clear_value();
+				}
+			}
+		}
+
+		// Write headers at excelHeaderRow
+		for (std::size_t c = 0; c < table.columns.size(); ++c)
+		{
+			ws.cell(xlnt::cell_reference((int)(c + 1), (int)excelHeaderRow)).value(table.columns[c].key.name);
+		}
+
+		// Write data starting at excelDataStart
+		for (std::size_t r = 0; r < table.rowCount; ++r)
+		{
+			for (std::size_t c = 0; c < table.columns.size(); ++c)
+			{
+				auto& cell = table.columns[c].values[r];
+				xlnt::cell xcell = ws.cell(xlnt::cell_reference((int)(c + 1), (int)(excelDataStart + r)));
+				set_xlnt_cell_value(xcell, cell.first);
+			}
+		}
+
+		// Save workbook
+		{
+			std::ofstream out(fl::u8topath(filePath), std::ios::binary | std::ios::trunc);
+			if (!out)
+			{
+				report.errors.push_back("save_sheet: could not open XLSX for writing: " + filePath);
+				return report;
+			}
+			wb.save(out);
+		}
+
+		report.cellsWritten = table.rowCount * table.columns.size();
+		return report;
+	}
+	catch (const std::exception& e)
+	{
+		report.errors.push_back(std::string("save_sheet: exception: ") + e.what());
+		return report;
+	}
+}
+
 MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& settings) {
 	MergeReport report;
 	Timer t;

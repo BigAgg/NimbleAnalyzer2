@@ -448,6 +448,19 @@ void NimbleAnalyzer::fileSelection(){
 		projectInfo.project.removefile(projectInfo.project.activeFile.path);
 		projectInfo.project.activeFile.clear();
 	}
+	if (ImGui::Button("Save")) {
+		SaveReport report = save_sheet(projectInfo.project.activeFile.path, projectInfo.project.activeFile, *projectInfo.project.getCurrentSettingsHandle());
+		if (!report.warnings.empty()) {
+			for (const auto& warning : report.warnings) {
+				logging::logwarning("%s", warning.c_str());
+			}
+		}
+		if (!report.errors.empty()) {
+			for (const auto& warning : report.errors) {
+				logging::logwarning("%s", warning.c_str());
+			}
+		}
+	}
 }
 
 void NimbleAnalyzer::sheetSelection(){
@@ -710,7 +723,6 @@ Ticked: Only import if the headers value from the src file does exist in dst fil
 			for (const auto& src_key : ms->sourceFile.columns) {
 				if (ImGui::Selectable(header_label(src_key.key).c_str())) {
 					headers.srcHeader = src_key.key;
-					logging::loginfo("src_key: %s, %d", src_key.key.name.c_str(), src_key.key.occurrence);
 				}
 			}
 			ImGui::EndCombo();
