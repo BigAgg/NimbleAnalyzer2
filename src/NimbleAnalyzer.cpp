@@ -553,8 +553,46 @@ void NimbleAnalyzer::mergeSettings(){
 			projectInfo.selectedMerge = "";
 		}
 	}
+	ImGui::SameLine();
+	if (ImGui::Button("Merge") && ms->sourceFile.loaded && projectInfo.selectedMerge != "") {
+		if (ms->mergefolder.empty()) {
+			MergeReport report = MergeTables(projectInfo.project.activeFile, ms->sourceFile, *ms);
+			if (!report.warnings.empty()) {
+				for (const auto& msg : report.warnings) {
+					logging::logwarning("[Merge Report] %s", msg.c_str());
+				}
+			}
+			if (!report.errors.empty()) {
+				for (const auto& msg : report.errors) {
+					logging::logerror("[Merge Report] %s", msg.c_str());
+				}
+			}
+		}
+		else {
+			const std::vector<std::string> files = fl::iteratePath(ms->mergefolder, false);
+			for (const std::string& file : files) {
+				std::string f = file;
+				std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+				if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
+					ms->sourceFile = load_sheet(file, ms->sourceFile.activeSheet, ms->sheetSettings);
+					MergeReport report = MergeTables(projectInfo.project.activeFile, ms->sourceFile, *ms);
+					if (!report.warnings.empty()) {
+						for (const auto& msg : report.warnings) {
+							logging::logwarning("[Merge Report] %s", msg.c_str());
+						}
+					}
+					if (!report.errors.empty()) {
+						for (const auto& msg : report.errors) {
+							logging::logerror("[Merge Report] %s", msg.c_str());
+						}
+					}
+				}
+			}
+		}
+	}
 	ImGui::PopID();
 	// sourcefile
+	ImGui::SeparatorText("Sourcefile settings");
 	if (ImGui::Button("Add sourcefile")) {
 		std::string path = OpenFileDialog("Excel Sheet", "xlsx,csv");
 		if (path != "") {
@@ -584,6 +622,7 @@ void NimbleAnalyzer::mergeSettings(){
 	ImGui::Text("Sourcefile: %s", ms->sourceFile.name.c_str());
 	ImGui::SetItemTooltip("%s", ms->sourceFile.path.c_str());
 	// sourcefolder
+	ImGui::SeparatorText("Mergefolder settings");
 	if (ImGui::Button("Add mergefolder")) {
 		std::string path = OpenDirectoryDialog();
 		if (path != "") {
@@ -599,8 +638,8 @@ void NimbleAnalyzer::mergeSettings(){
 		}
 		ImGui::PopID();
 		ImGui::SameLine();
-		ImGui::Text("%s", ms->mergefolder.c_str());
 	}
+	ImGui::Text("Mergefolder: %s", ms->mergefolder.c_str());
 	// Key
 	ImGui::SeparatorText("Header Key");
 	ImGui::TextUnformatted("Src Header key                     Dst Header key");
@@ -624,13 +663,14 @@ void NimbleAnalyzer::mergeSettings(){
 		ImGui::EndCombo();
 	}
 	ImGui::SameLine();
+	if (ImGui::Button("Clear")) {
+		ms->key = {};
+	}
+	ImGui::SameLine();
 	ImGui::Checkbox("Reverse header", &ms->reverseKey);
 	ImGui::SetItemTooltip("Sets the key headers to work in reverse.\n\
 Unticked: Only import if the headers value from the src file does NOT exist in dst file\n\
 Ticked: Only import if the headers value from the src file does exist in dst file and fill row with data");
-	if (ImGui::Button("Merge") && ms->sourceFile.loaded) {
-		MergeReport report = MergeTables(projectInfo.project.activeFile, ms->sourceFile, *ms);
-	}
 	// add rules
 	ImGui::SeparatorText("Merging headers");
 	int size = ms->mergeHeaders.size();
@@ -652,7 +692,7 @@ Ticked: Only import if the headers value from the src file does exist in dst fil
 			}
 		}
 	}
-	ImGui::TextUnformatted("Src Header key                     Dst Header key");
+	ImGui::TextUnformatted("Dst Header key                     Src Header key");
 	for (auto& headers : ms->mergeHeaders) {
 		ImGui::PushID(&headers);
 		ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
@@ -670,6 +710,7 @@ Ticked: Only import if the headers value from the src file does exist in dst fil
 			for (const auto& src_key : ms->sourceFile.columns) {
 				if (ImGui::Selectable(header_label(src_key.key).c_str())) {
 					headers.srcHeader = src_key.key;
+					logging::loginfo("src_key: %s, %d", src_key.key.name.c_str(), src_key.key.occurrence);
 				}
 			}
 			ImGui::EndCombo();

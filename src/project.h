@@ -168,6 +168,7 @@ private:
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
 struct MergeReport {
+	std::string type = "";
 	size_t rowsRead = 0;
 	size_t rowsWritten = 0;
 	size_t cellsWritten = 0;

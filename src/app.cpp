@@ -290,6 +290,7 @@ void App::contentWindow(){
 	}
 
 	ImGuiWindowFlags flags =
+		ImGuiWindowFlags_NoTitleBar |
 		ImGuiWindowFlags_NoResize |
 		ImGuiWindowFlags_NoMove |
 		ImGuiWindowFlags_NoCollapse |

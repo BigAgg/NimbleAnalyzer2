@@ -574,6 +574,8 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 	{
 		Column col;
 		col.key = make_header_key(seen, hf);
+		ColId id = static_cast<ColId>(table.columns.size());
+		table.byName[col.key.name].push_back(id);
 		table.columns.push_back(std::move(col));
 	}
 
@@ -667,39 +669,134 @@ MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& s
 	if (settings.mergeHeaders.empty())
 		return report;
 	t.Start();
-	size_t startRowsize = dst.rowCount;
+	int startCount = dst.rowCount;
 	const bool useKey = (!settings.key.dstHeader.name.empty() && !settings.key.srcHeader.name.empty());
 	if (useKey) {
-
-	}
-	else {
-		// looping all merge header rules
-		for (const auto& header : settings.mergeHeaders) {
-			Column* dstCol = dst.find_column(header.dstHeader.name, header.dstHeader.occurrence);
-			Column* srcCol = src.find_column(header.srcHeader.name, header.srcHeader.occurrence);
-			// Handle nullptrs (column not found)
-			if (!dstCol || !srcCol) {
-				report.skippedHeaders++;
-				report.conflicts++;
-				if (!dstCol)
-					report.warnings.push_back("Skipped Header: Destination Header not found: " + header_label(header.dstHeader));
-				if (!srcCol)
-					report.warnings.push_back("Skipped Header: Source Header not found: " + header_label(header.srcHeader));
-				continue;
+		// Merging only if value does not exist in header
+		Column* dstkeyCol = dst.find_column(settings.key.dstHeader.name, settings.key.dstHeader.occurrence);
+		Column* srckeyCol = src.find_column(settings.key.srcHeader.name, settings.key.srcHeader.occurrence);
+		if (dstkeyCol && srckeyCol) {
+			if (settings.reverseKey) {
+				report.type = "None Matching Key";
+				// Loop each row and insert the row into dst if they keys value does not alrdy exist in file
+				for (int i = 0; i < srckeyCol->values.size(); i++) {
+					const std::pair<ExcelValue, std::string> value = srckeyCol->values[i];
+					if (std::holds_alternative<std::monostate>(value.first))
+						continue;
+					auto it = std::find(dstkeyCol->values.begin(), dstkeyCol->values.end(), value);
+					if (it != dstkeyCol->values.end())
+						continue;
+					// Looping all headers
+					for (const auto& header : settings.mergeHeaders) {
+						Column* dstCol = dst.find_column(header.dstHeader.name, header.dstHeader.occurrence);
+						if (!dstCol) {
+							report.warnings.push_back("Destination Header not found: " + header_label(header.dstHeader));
+							report.conflicts++;
+						}
+						Column* srcCol = src.find_column(header.srcHeader.name, header.srcHeader.occurrence);
+						if (!srcCol) {
+							report.warnings.push_back("Source Header not found: " + header_label(header.srcHeader));
+							report.conflicts++;
+						}
+						if (!srcCol || !dstCol) {
+							report.skippedHeaders++;
+							continue;
+						}
+						// inserting the value
+						dstCol->values.emplace_back(srcCol->values[i]);
+						if (dstCol->values.size() > dst.rowCount)
+							dst.rowCount = dstCol->values.size() + 1;
+						if (!srcCol->values[i].second.empty())
+							report.cellsWritten++;
+					}
+				}
 			}
-			for (auto& value : srcCol->values) {
-				dstCol->values.emplace_back(value.first, value.second);
-				++dst.rowCount;
+			// Merging only if value does exist in header
+			else {
+				report.type = "Matching Key";
+				// Loop each row and insert the row into dst if the keys value does exist
+				for (int i = 0; i < srckeyCol->values.size(); i++) {
+					const std::pair<ExcelValue, std::string> value = srckeyCol->values[i];
+					auto it = std::find(dstkeyCol->values.begin(), dstkeyCol->values.end(), value);
+					if (it == dstkeyCol->values.end())
+						continue;
+					// Looping all headers
+					for (const auto& header : settings.mergeHeaders) {
+						Column* dstCol = dst.find_column(header.dstHeader.name, header.dstHeader.occurrence);
+						if (!dstCol) {
+							report.warnings.push_back("Destination Header not found: " + header_label(header.dstHeader));
+							report.conflicts++;
+						}
+						Column* srcCol = src.find_column(header.srcHeader.name, header.srcHeader.occurrence);
+						if (!srcCol) {
+							report.warnings.push_back("Source Header not found: " + header_label(header.srcHeader));
+							report.conflicts++;
+						}
+						if (!srcCol || !dstCol) {
+							report.skippedHeaders++;
+							continue;
+						}
+						// inserting the value inside the row
+						dstCol->values[it - dstkeyCol->values.begin()] = srcCol->values[i];
+						if (!srcCol->values[i].second.empty())
+							report.cellsWritten++;
+					}
+					report.rowsMatched++;
+					report.rowsWritten++;
+				}
+			}
+		}
+		else {
+			if (!dstkeyCol) {
+				report.errors.push_back("Destination Key not found: " + header_label(settings.key.dstHeader));
+			}
+			if (!srckeyCol) {
+				report.errors.push_back("Source Key not found: " + header_label(settings.key.srcHeader));
 			}
 		}
 	}
-	report.rowsAppended = dst.rowCount - startRowsize;
+	// Merging in append mode
+	else {
+		report.type = "Append";
+		// looping all merge header rules
+		for (const auto& header : settings.mergeHeaders) {
+			Column* dstCol = dst.find_column(header.dstHeader.name, header.dstHeader.occurrence);
+			if (!dstCol) {
+				report.warnings.push_back("Destination Header not found: " + header_label(header.dstHeader));
+				report.conflicts++;
+			}
+			Column* srcCol = src.find_column(header.srcHeader.name, header.srcHeader.occurrence);
+			if (!srcCol) {
+				report.warnings.push_back("Source Header not found: " + header_label(header.srcHeader));
+				report.conflicts++;
+			}
+			if (!srcCol || !dstCol) {
+				report.skippedHeaders++;
+				continue;
+			}
+			for (const auto& value : srcCol->values) {
+				dstCol->values.emplace_back(value);
+				if (!value.second.empty())
+					report.cellsWritten++;
+				if (dstCol->values.size() > dst.rowCount)
+					dst.rowCount = dstCol->values.size() + 1;
+			}
+			report.rowsMatched++;
+		}
+	}
+	for (auto& col : dst.columns) {
+		while (col.values.size() < dst.rowCount - 1) {
+			col.values.emplace_back(std::monostate{}, "");
+		}
+	}
+	report.rowsAppended = dst.rowCount - startCount;
 	t.Stop();
 	logging::loginfo("[project::MergeTables] Tables merged:\n\
 					Destination:\t%s\n\
 					Source:\t\t%s\n\
 					Time:\t\t\t%.2fms (%.2fS)\n\
 					MergeReport:\n\
+							Merging Type:\t\t%s\n\
 							Rows read:\t\t\t%zu\n\
 							Rows written:\t\t %zu\n\
 							Cells written:\t\t%zu\n\
@@ -712,6 +809,7 @@ MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& s
 		dst.name.c_str(),
 		src.name.c_str(),
 		t.GetElapsedMilliseconds(), t.GetElapsedSeconds(),
+		report.type.c_str(),
 		report.rowsRead,
 		report.rowsWritten,
 		report.cellsWritten,
