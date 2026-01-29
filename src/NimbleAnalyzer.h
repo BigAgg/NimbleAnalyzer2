@@ -5,7 +5,8 @@
 enum class ViewMode {
 	ProjectSelection,
 	DataView,
-	JustMerge
+	JustMerge,
+	Update
 };
 
 class NimbleAnalyzer {
@@ -17,6 +18,7 @@ public:
 private:
 	void dataView();
 	void justMerge();
+	void update();
 	void loadProjectsAvail();
 	void generateProject(const std::string& name);
 	void deleteProject(const std::string& name);

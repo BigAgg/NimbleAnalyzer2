@@ -56,7 +56,18 @@ static std::string g_search_header = "##NONE_HEADER";
 static std::vector<int> filteredRows;
 
 void NimbleAnalyzer::menubar(){
+	if (ImGui::Button("Check for Updates")) {
+		viewmode = ViewMode::Update;
+	}
 	switch (viewmode) {
+	case ViewMode::Update:
+		if (ImGui::Button("Project selection"))
+			viewmode = ViewMode::ProjectSelection;
+		if (ImGui::Button("Data view"))
+			viewmode = ViewMode::DataView;
+		if (ImGui::Button("Just merge"))
+			viewmode = ViewMode::JustMerge;
+		break;
 	case ViewMode::ProjectSelection:
 		if (ImGui::Button("Data view"))
 			viewmode = ViewMode::DataView;
@@ -133,6 +144,9 @@ void NimbleAnalyzer::contentwindow(){
 		break;
 	case ViewMode::JustMerge:
 		justMerge();
+		break;
+	case ViewMode::Update:
+		update();
 		break;
 	default:
 		viewmode = ViewMode::ProjectSelection;
@@ -335,6 +349,10 @@ void NimbleAnalyzer::dataView(){
 }
 
 void NimbleAnalyzer::justMerge(){
+}
+
+void NimbleAnalyzer::update(){
+
 }
 
 void NimbleAnalyzer::loadProjectsAvail() {
