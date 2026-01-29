@@ -3,6 +3,7 @@
 #include <filesystem>
 #include "timer.h"
 #include "logging.h"
+#include <chrono>
 #include "utils.h"
 
 namespace fs = std::filesystem;
@@ -137,7 +138,7 @@ bool fileloader::exists(const std::string& filename) {
 std::vector<std::string> fileloader::iteratePath(const std::string& path, bool includeDirs, bool includeFiles)
 {
 	std::vector<std::string> content;
-	const fs::path dir = path;
+	const fs::path dir = u8topath(path);
 	if (!exists(dir)) {
 		logging::logwarning("[fileloader::iteratePath] The selected path does not exist!");
 		return content;
@@ -165,6 +166,18 @@ std::string fileloader::u8path(const std::string& path){
 std::string fileloader::u8topath(const std::string& path){
 	fs::path p = fs::u8path(reinterpret_cast<const char*>(path.data()));
 	return p.string();
+}
+
+std::string fileloader::GetLastWriteTime(const std::string& path){
+	using namespace std::chrono;
+	auto ftime = std::filesystem::last_write_time(u8topath(path));
+	auto sctp = time_point_cast<system_clock::duration>(
+		ftime - decltype(ftime)::clock::now() + system_clock::now());
+
+	std::time_t cftime = system_clock::to_time_t(sctp);
+	std::stringstream ss;
+	ss << std::put_time(std::localtime(&cftime), "%F %T");
+	return ss.str();
 }
 
 void fileloader::copy(const std::string& source, const std::string& dest, bool overwrite){

@@ -21,7 +21,7 @@ namespace fl = fileloader;
 #define CHILD_WINDOW_HEIGHT 325.0f
 
 // Storing data for project selection
-static struct projectData {
+struct projectData {
 	std::string name;
 	std::string path;
 	void clear() {
@@ -250,7 +250,7 @@ static bool RowMatchesFilter(int r) {
 		return !skip;
 }
 
-static struct ActiveCell { int row = -1; int col = -1; };
+struct ActiveCell { int row = -1; int col = -1; };
 static ActiveCell g_active;
 void NimbleAnalyzer::dataView(){
 	static std::unordered_map<CellKey, std::string, CellKeyHash> editBuf;
@@ -584,21 +584,26 @@ void NimbleAnalyzer::mergeSettings(){
 		else {
 			const std::vector<std::string> files = fl::iteratePath(ms->mergefolder, false);
 			for (const std::string& file : files) {
-				std::string f = file;
-				std::transform(f.begin(), f.end(), f.begin(), ::tolower);
-				if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
-					ms->sourceFile = load_sheet(file, ms->sourceFile.activeSheet, ms->sheetSettings);
-					MergeReport report = MergeTables(projectInfo.project.activeFile, ms->sourceFile, *ms);
-					if (!report.warnings.empty()) {
-						for (const auto& msg : report.warnings) {
-							logging::logwarning("[Merge Report] %s", msg.c_str());
+				try {
+					std::string f = file;
+					std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+					if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
+						SheetTable srcTable = load_sheet(file, ms->sourceFile.activeSheet, ms->sheetSettings);
+						MergeReport report = MergeTables(projectInfo.project.activeFile, srcTable, *ms);
+						if (!report.warnings.empty()) {
+							for (const auto& msg : report.warnings) {
+								logging::logwarning("[Merge Report] %s", msg.c_str());
+							}
+						}
+						if (!report.errors.empty()) {
+							for (const auto& msg : report.errors) {
+								logging::logerror("[Merge Report] %s", msg.c_str());
+							}
 						}
 					}
-					if (!report.errors.empty()) {
-						for (const auto& msg : report.errors) {
-							logging::logerror("[Merge Report] %s", msg.c_str());
-						}
-					}
+				}
+				catch (const std::exception& e) {
+					logging::logerror(e.what());
 				}
 			}
 		}
@@ -650,12 +655,11 @@ void NimbleAnalyzer::mergeSettings(){
 			ms->mergefolder = "";
 		}
 		ImGui::PopID();
-		ImGui::SameLine();
 	}
 	ImGui::Text("Mergefolder: %s", ms->mergefolder.c_str());
 	// Key
 	ImGui::SeparatorText("Header Key");
-	ImGui::TextUnformatted("Src Header key                     Dst Header key");
+	ImGui::TextUnformatted("Dst Header key                     Src Header key");
 	ImGui::SetNextItemWidth(TEXT_INPUT_WIDTH);
 	if (ImGui::BeginCombo("##Dst Header Key", header_label(ms->key.dstHeader).c_str())) {
 		for (const auto& dst_key : projectInfo.project.activeFile.columns) {

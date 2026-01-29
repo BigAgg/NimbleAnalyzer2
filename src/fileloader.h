@@ -19,6 +19,7 @@ namespace fileloader {
 	std::string getFilename(const std::string& path);
 	std::string u8path(const std::string& path);
 	std::string u8topath(const std::string& path);
+	std::string GetLastWriteTime(const std::string& path);
 
 	void copy(const std::string& source, const std::string& dest, bool overwrite=true);
 	void createDirs(const std::string& dirs);

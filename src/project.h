@@ -4,6 +4,35 @@
 #include <xlnt/xlnt.hpp>
 #include <variant>
 #include <cstdint>
+#include "utils.h"
+
+/*struct ExcelDateTime {
+	int year, month, day;
+	int hour = 0, minute = 0, second = 0;
+
+	bool operator==(const ExcelDateTime& rhs) const noexcept {
+		return this == &rhs;
+	}
+	bool operator!=(const ExcelDateTime& rhs) const noexcept {
+		return this != &rhs;
+	}
+};*/
+static std::string ExcelSerialToDate(int serial) {
+	int l = serial + 68569 + 2415019;
+	int n = 4 * l / 146097;
+	l = l - (146097 * n + 3) / 4;
+	int i = 4000 * (l + 1) / 1461001;
+	l = l - 1461 * i / 4 + 31;
+	int j = 80 * l / 2447;
+	int day = l - 2447 * j / 80;
+	l = j / 11;
+	int month = j + 2 - 12 * l;
+	int year = 100 * (n - 49) + i + l;
+
+	std::ostringstream oss;
+	oss << std::setfill('0') << std::setw(2) << day << "." << std::setw(2) << month << "." << year;
+	return oss.str();
+}
 
 using ExcelValue = std::variant<
 	std::monostate, // empty
@@ -11,6 +40,7 @@ using ExcelValue = std::variant<
 	std::int64_t,		// integers
 	bool,
 	std::string			// strings (also fallback)
+	//ExcelDateTime
 >;
 
 using ColId = std::uint32_t;
@@ -35,6 +65,11 @@ static std::string to_display(const ExcelValue& v) {
 		std::string operator()(std::int64_t i) const { return std::to_string(i); }
 		std::string operator()(bool b) const { return b ? "true" : "false"; }
 		std::string operator()(const std::string& s) const { return s; }
+		/*std::string operator()(const ExcelDateTime& dt) const {
+			char buf[32];
+			std::snprintf(buf, sizeof(buf), "%02d.%02d.%04d", dt.day, dt.month, dt.year);
+			return buf;
+		}*/
 	} vis;
 	return std::visit(vis, v);
 }
@@ -71,6 +106,31 @@ static ExcelValue parse_value_auto(const std::string& input) {
 		double d = std::strtod(n.c_str(), &end);
 		if (end && *end == '\0') return d;
 	}
+	// Date
+	/*if (isDate(s)) {
+		std::string splitter;
+		if (s.contains("-"))
+			splitter = '-';
+		else
+			splitter = '.';
+		std::string year, month, day;
+		std::pair<std::string, std::string> split = Splitlines(s, splitter);
+		if (splitter[0] == s[4]) {
+			year = split.first;
+			month = Splitlines(split.second, splitter).first;
+			day = Splitlines(split.second, splitter).second;
+		}
+		else {
+			day = split.first;
+			month = Splitlines(split.second, splitter).first;
+			year = Splitlines(split.second, splitter).second;
+		}
+		ExcelDateTime dt;
+		dt.year = std::stoi(year);
+		dt.month = std::stoi(month);
+		dt.day = std::stoi(day);
+		return dt;
+	}*/
 	// fallback to string
 	return s;
 }

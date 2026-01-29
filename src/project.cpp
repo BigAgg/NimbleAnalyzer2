@@ -451,15 +451,21 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 			if (c < row.length()) {
 				auto cell = row[c];
 				if (cell.has_value()) {
+					std::string keyname = table.columns[c].key.name;
+					std::transform(keyname.begin(), keyname.end(), keyname.begin(), ::tolower);
 					switch (cell.data_type()) {
 					case xlnt::cell_type::number:
+						if (keyname.contains("date") || keyname.contains("datum")) {
+							value = ExcelSerialToDate(cell.value<double>());
+							break;
+						}
 						value = cell.value<double>();
 						break;
 					case xlnt::cell_type::boolean:
 						value = cell.value<bool>();
 						break;
-					case xlnt::cell_type::empty:
 					case xlnt::cell_type::date:
+					case xlnt::cell_type::empty:
 					case xlnt::cell_type::formula_string:
 					default:
 						value = cell.to_string();
@@ -526,6 +532,7 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 	std::string rec;
 	while (fl::csv::read_csv_record(file, rec))
 	{
+		convertContentToUTF8(&rec);
 		// Strip BOM on first record if present
 		if (records.empty() && rec.size() >= 3 &&
 			(unsigned char)rec[0] == 0xEF && (unsigned char)rec[1] == 0xBB && (unsigned char)rec[2] == 0xBF)
@@ -994,7 +1001,7 @@ MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& s
 				continue;
 			}
 			for (const auto& value : srcCol->values) {
-				dstCol->values.emplace_back(value);
+				dstCol->values.emplace_back(std::move(value));
 				if (!value.second.empty())
 					report.cellsWritten++;
 				if (dstCol->values.size() > dst.rowCount)
