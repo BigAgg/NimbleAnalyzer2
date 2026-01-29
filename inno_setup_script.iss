@@ -1,6 +1,6 @@
-#define Name "App"
-#define Version "0.0.1"
-#define InstallDir "{commonpf}\App"
+#define Name "Nimble Analyzer"
+#define Version "1.0.0"
+#define InstallDir "{commonpf}\Nimble Analyzer"
 
 
 [Setup]

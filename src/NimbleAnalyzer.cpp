@@ -48,6 +48,9 @@ static struct {
 
 
 void NimbleAnalyzer::init(){
+	checkForUpdates();
+	if (updateInfo.updateAvail)
+		viewmode = ViewMode::Update;
 	loadProjectsAvail();
 }
 
@@ -56,9 +59,6 @@ static std::string g_search_header = "##NONE_HEADER";
 static std::vector<int> filteredRows;
 
 void NimbleAnalyzer::menubar(){
-	if (ImGui::Button("Check for Updates")) {
-		viewmode = ViewMode::Update;
-	}
 	switch (viewmode) {
 	case ViewMode::Update:
 		if (ImGui::Button("Project selection"))
@@ -69,12 +69,18 @@ void NimbleAnalyzer::menubar(){
 			viewmode = ViewMode::JustMerge;
 		break;
 	case ViewMode::ProjectSelection:
+		if (ImGui::Button("Check for Updates")) {
+			viewmode = ViewMode::Update;
+		}
 		if (ImGui::Button("Data view"))
 			viewmode = ViewMode::DataView;
 		if (ImGui::Button("Just merge"))
 			viewmode = ViewMode::JustMerge;
 		break;
 	case ViewMode::DataView:
+		if (ImGui::Button("Check for Updates")) {
+			viewmode = ViewMode::Update;
+		}
 		if (ImGui::Button("Project selection"))
 			viewmode = ViewMode::ProjectSelection;
 		if (ImGui::Button("Just merge"))
@@ -109,6 +115,9 @@ No Filters just searches for everything that starts with your searchtext", '%');
 		}
 		break;
 	case ViewMode::JustMerge:
+		if (ImGui::Button("Check for Updates")) {
+			viewmode = ViewMode::Update;
+		}
 		if (ImGui::Button("Project selection"))
 			viewmode = ViewMode::ProjectSelection;
 		if (ImGui::Button("Data view"))
@@ -352,7 +361,57 @@ void NimbleAnalyzer::justMerge(){
 }
 
 void NimbleAnalyzer::update(){
+	if (updateInfo.updateAvail) {
+		ImGui::Text("New update avail: %d.%d.%d", updateInfo.version_avail_major, updateInfo.version_avail_minor, updateInfo.version_avail_alpha);
+		ImGui::SameLine();
+		if (ImGui::Button("Update now")) {
+			std::string installerPath = "Y:\\Produktion\\Software & Tools\\NimbleAnalyzer\\src\\output\\setup_NimbleAnalyzer.exe";
+			if (fl::exists(installerPath)) {
+				fl::copy(installerPath, ".\\installer.exe", true);
+				std::string batPath = "update_temp.bat";
+				std::string appPath = fl::GetCurrentPath() + "\\installer.exe";
+				std::ofstream bat(batPath);
+				bat << "@echo off\n";
+				bat << "timeout /t 2 /nobreak >nul\n"; // wait for 2 seconds
+				//bat << "copy /Y \"" << installerPath << "\" \"" << appPath << "\"\n";
+				bat << "start \"\" \"" << appPath << "\"\n";
+				bat << "exit";
+				bat.close();
+				system(("start " + batPath).c_str());
+				CloseWindow();
+			}
+		}
+		ImGui::InputTextMultiline("Updateinfo", &updateInfo.updatetext);
+	}
+	else {
+		ImGui::Text("No update available");
+	}
+}
 
+void NimbleAnalyzer::checkForUpdates(){
+	updateInfo = {};
+	if (!fl::exists("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/VERSION"))
+		return;
+	// Read current version
+	std::string version = NIMBLE_ANALYZER_VERSION;
+	updateInfo.version_major = std::stoi(Splitlines(version, ".").first);
+	updateInfo.version_minor = std::stoi(Splitlines(Splitlines(version, ".").second, ".").first);
+	updateInfo.version_alpha = std::stoi(Splitlines(Splitlines(version, ".").second, ".").second);
+	std::string version_file = fl::loadfile("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/VERSION");
+	updateInfo.version_avail_major = std::stoi(Splitlines(version_file, ".").first);
+	updateInfo.version_avail_minor = std::stoi(Splitlines(Splitlines(version_file, ".").second, ".").first);
+	updateInfo.version_avail_alpha = std::stoi(Splitlines(Splitlines(version_file, ".").second, ".").second);
+	// Read update info
+	if (updateInfo.version_major <= updateInfo.version_avail_major) {
+		if (updateInfo.version_minor <= updateInfo.version_avail_minor) {
+			if (updateInfo.version_alpha <= updateInfo.version_avail_alpha) {
+				return;
+			}
+		}
+	}
+	if(fl::exists("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES"))
+		updateInfo.updatetext = fl::loadfile("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES");
+	updateInfo.updateAvail = true;
 }
 
 void NimbleAnalyzer::loadProjectsAvail() {

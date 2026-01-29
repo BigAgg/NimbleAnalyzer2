@@ -180,6 +180,10 @@ std::string fileloader::GetLastWriteTime(const std::string& path){
 	return ss.str();
 }
 
+std::string fileloader::GetCurrentPath(){
+	return fs::u8path(fs::current_path().string()).string();
+}
+
 void fileloader::copy(const std::string& source, const std::string& dest, bool overwrite){
 	fs::path s = fs::u8path(source);
 	fs::path d = fs::u8path(dest);
