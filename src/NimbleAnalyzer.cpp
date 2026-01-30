@@ -70,6 +70,7 @@ void NimbleAnalyzer::menubar(){
 		break;
 	case ViewMode::ProjectSelection:
 		if (ImGui::Button("Check for Updates")) {
+			checkForUpdates();
 			viewmode = ViewMode::Update;
 		}
 		if (ImGui::Button("Data view"))
@@ -398,20 +399,22 @@ void NimbleAnalyzer::checkForUpdates(){
 	updateInfo.version_minor = std::stoi(Splitlines(Splitlines(version, ".").second, ".").first);
 	updateInfo.version_alpha = std::stoi(Splitlines(Splitlines(version, ".").second, ".").second);
 	std::string version_file = fl::loadfile("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/VERSION");
+	logging::loginfo("Current version: %d.%d.%d", updateInfo.version_major, updateInfo.version_minor, updateInfo.version_alpha);
 	updateInfo.version_avail_major = std::stoi(Splitlines(version_file, ".").first);
 	updateInfo.version_avail_minor = std::stoi(Splitlines(Splitlines(version_file, ".").second, ".").first);
 	updateInfo.version_avail_alpha = std::stoi(Splitlines(Splitlines(version_file, ".").second, ".").second);
+	logging::loginfo("Available version: %d.%d.%d", updateInfo.version_avail_major, updateInfo.version_avail_minor, updateInfo.version_avail_alpha);
 	// Read update info
-	if (updateInfo.version_major <= updateInfo.version_avail_major) {
-		if (updateInfo.version_minor <= updateInfo.version_avail_minor) {
-			if (updateInfo.version_alpha <= updateInfo.version_avail_alpha) {
+	if (updateInfo.version_major >= updateInfo.version_avail_major) {
+		if (updateInfo.version_minor >= updateInfo.version_avail_minor) {
+			if (updateInfo.version_alpha >= updateInfo.version_avail_alpha) {
 				return;
 			}
 		}
 	}
+	updateInfo.updateAvail = true;
 	if(fl::exists("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES"))
 		updateInfo.updatetext = fl::loadfile("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES");
-	updateInfo.updateAvail = true;
 }
 
 void NimbleAnalyzer::loadProjectsAvail() {
