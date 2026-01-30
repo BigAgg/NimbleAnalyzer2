@@ -1,0 +1,20 @@
+version = 1
+count = 3
+BEGIN
+file = X:/Engine/NimbleAnalyzer2/testfiles/testfile_µ.xlsx
+sheet = Sheet1
+dataRow = 1
+stopAtEmpty = 0
+END
+BEGIN
+file = X:/Engine/NimbleAnalyzer2/testfiles/test.csv
+sheet = main
+dataRow = 0
+stopAtEmpty = 0
+END
+BEGIN
+file = X:/Engine/NimbleAnalyzer2/testfiles/testfile_µ.xlsx
+sheet = µ
+dataRow = -1
+stopAtEmpty = 0
+END

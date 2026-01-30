@@ -1,0 +1,45 @@
+version = 1
+profile_count = 3
+BEGIN_PROFILE
+file = X:/Engine/NimbleAnalyzer2/testfiles/testfile_µ.xlsx
+sheet = Sheet1
+rule_count = 1
+BEGIN_RULE
+rule_name = test
+mergefolder = 
+src_file = 
+src_sheet = 
+dataRow = -1
+stopAtEmpty = 0
+dst_key_name = 
+dst_key_occ = 0
+src_key_name = 
+src_key_occ = 0
+reverseKey = 0
+mergeHeaders_count = 0
+END_RULE
+END_PROFILE
+BEGIN_PROFILE
+file = X:/Engine/NimbleAnalyzer2/testfiles/test.csv
+sheet = main
+rule_count = 1
+BEGIN_RULE
+rule_name = test
+mergefolder = 
+src_file = 
+src_sheet = 
+dataRow = -1
+stopAtEmpty = 0
+dst_key_name = 
+dst_key_occ = 0
+src_key_name = 
+src_key_occ = 0
+reverseKey = 0
+mergeHeaders_count = 0
+END_RULE
+END_PROFILE
+BEGIN_PROFILE
+file = X:/Engine/NimbleAnalyzer2/testfiles/testfile_µ.xlsx
+sheet = µ
+rule_count = 0
+END_PROFILE

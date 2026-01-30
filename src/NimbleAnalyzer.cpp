@@ -382,7 +382,8 @@ void NimbleAnalyzer::update(){
 				CloseWindow();
 			}
 		}
-		ImGui::InputTextMultiline("Updateinfo", &updateInfo.updatetext);
+		ImGui::Text("Changes");
+		ImGui::InputTextMultiline("##Updateinfo", &updateInfo.updatetext, {}, ImGuiInputTextFlags_ReadOnly);
 	}
 	else {
 		ImGui::Text("No update available");

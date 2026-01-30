@@ -374,6 +374,25 @@ std::string Project::sheet_key(const std::string& file, const std::string& sheet
 	return file + "\n" + sheet;
 }
 
+bool convertOldProject(const std::string& path){
+	Project project;
+	project.name = fl::getFilename(path);
+	project.path = path;
+	const std::string proFile = path + "/.pro";
+	if (!fl::exists(proFile))
+		return false;
+	const auto& file = fl::loadfilelines(proFile);
+	// loading selected file
+	const size_t file_count = std::stoi(file[1]);
+	for (int i = file_count; i < file.size(); i++) {
+		project.addfile(file[i]);
+	}
+	// Now everything for project.na is ready already
+	// building sheets.na
+
+	return true;
+}
+
 // loading functions defs
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings) {
 	if (filePath.empty())
@@ -551,8 +570,13 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 	{
 		// auto: first non-empty record
 		headerIndex = 0;
-		while (headerIndex < (int)records.size() && fl::csv::is_line_empty_or_ws(records[headerIndex]))
-			++headerIndex;
+		for (const auto& rec : records) {
+			if (rec.contains("DATA;"))
+				break;
+			headerIndex++;
+		}
+		/*while (headerIndex < (int)records.size() && fl::csv::is_line_empty_or_ws(records[headerIndex]))
+			++headerIndex;*/
 
 		if (headerIndex >= (int)records.size())
 		{

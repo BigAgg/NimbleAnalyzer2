@@ -225,6 +225,8 @@ private:
 	void save_all_mergesettings() const;
 };
 
+bool convertOldProject(const std::string& path);
+
 SheetTable load_sheet(const std::string& filePath, const std::string& sheet, SheetSettings& sheetSettings);
 
 struct SaveReport {
