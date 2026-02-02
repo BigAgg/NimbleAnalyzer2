@@ -389,6 +389,106 @@ bool convertOldProject(const std::string& path){
 	}
 	// Now everything for project.na is ready already
 	// building sheets.na
+	for (const auto& f : project.files) {
+		const std::string& fileini = path + "/" + fl::getFilename(f) + ".ini";
+		if (!fl::exists(fileini))
+			continue;
+		project.loadfile(f);
+		SheetSettings* ss = project.getCurrentSettingsHandle();
+		if (!ss)
+			continue;
+		ss->stopAtEmpty = true;
+		// go on and build the mergesettings for each
+		auto msv = project.getCurrentMergeSettingsHandle();
+		if (!msv)
+			continue;
+		msv->push_back({ "MergeFolder" });
+		MergeSettings& ms = msv->back();
+		const auto& ini = fl::loadfilelines(fileini);
+		int line_idx = -1;
+		for (const std::string& line : ini) {
+			line_idx++;
+			if (line.starts_with("m_mergefolder = "))
+				ms.mergefolder = Splitlines(line, " = ").second;
+			if (line.starts_with("m_mergefolderfile = "))
+				ms.sourceFile = load_sheet(Splitlines(line, " = ").second, "", ms.sheetSettings);
+			if (line.starts_with("m_dontimportifexistsheader = ") && Splitlines(line, " = ").second.size() > 3) {
+				ms.reverseKey = true;
+			}
+			if (line.starts_with("m_megeheadersfolder = ")) {
+				int count = std::stoi(Splitlines(line, " = ").second);
+				for (int i = line_idx + 1; i < line_idx + count + 1; i++) {
+					MergeHeaders mh;
+					std::string mh_line = ini[i];
+					std::pair<std::string, std::string> values = Splitlines(mh_line, " := ");
+					int index = std::stoi(Splitlines(values.first, " ##").second);
+					if (index >= project.activeFile.columns.size())
+						continue;
+					mh.dstHeader.name = project.activeFile.columns[index].key.name;
+					mh.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
+					index = std::stoi(Splitlines(values.second, " ##").second);
+					if (index >= ms.sourceFile.columns.size())
+						continue;
+					mh.srcHeader.name = ms.sourceFile.columns[index].key.name;
+					mh.srcHeader.occurrence = ms.sourceFile.columns[index].key.occurrence;
+					ms.mergeHeaders.push_back(std::move(mh));
+				}
+			}
+			if (line.starts_with("m_mergefolderif = ")) {
+				std::pair<std::string, std::string> values = Splitlines(Splitlines(line, " = ").second, " := ");
+				int index = std::stoi(Splitlines(values.first, " ##").second);
+				if (index >= project.activeFile.columns.size())
+					continue;
+				ms.key.dstHeader.name = project.activeFile.columns[index].key.name;
+				ms.key.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
+				index = std::stoi(Splitlines(values.second, " ##").second);
+				if (index >= ms.sourceFile.columns.size())
+					continue;
+				ms.key.srcHeader.name = ms.sourceFile.columns[index].key.name;
+				ms.key.srcHeader.occurrence = ms.sourceFile.columns[index].key.occurrence;
+			}
+		}
+		line_idx = -1;
+		msv->push_back({ "MergeFile" });
+		ms = msv->back();
+		for (const std::string& line : ini) {
+			line_idx++;
+			if (line.starts_with("m_mergefile = "))
+				ms.sourceFile = load_sheet(Splitlines(line, " = ").second, "", ms.sheetSettings);
+			if (line.starts_with("m_mergeif = ")) {
+				std::pair<std::string, std::string> values = Splitlines(Splitlines(line, " = ").second, " := ");
+				int index = std::stoi(Splitlines(values.first, " ##").second);
+				if (index >= project.activeFile.columns.size())
+					continue;
+				ms.key.dstHeader.name = project.activeFile.columns[index].key.name;
+				ms.key.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
+				index = std::stoi(Splitlines(values.second, " ##").second);
+				if (index >= ms.sourceFile.columns.size())
+					continue;
+				ms.key.srcHeader.name = ms.sourceFile.columns[index].key.name;
+				ms.key.srcHeader.occurrence = ms.sourceFile.columns[index].key.occurrence;
+			}
+			if (line.starts_with("m_mergeheaders = ")) {
+				int count = std::stoi(Splitlines(line, " = ").second);
+				for (int i = line_idx + 1; i < line_idx + count + 1; i++) {
+					MergeHeaders mh;
+					std::pair<std::string, std::string> values = Splitlines(ini[i], " := ");
+					int index = std::stoi(Splitlines(values.first, " ##").second);
+					if (index >= project.activeFile.columns.size())
+						continue;
+					mh.dstHeader.name = project.activeFile.columns[index].key.name;
+					mh.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
+					index = std::stoi(Splitlines(values.second, " ##").second);
+					if (index >= ms.sourceFile.columns.size())
+						continue;
+					mh.srcHeader.name = ms.sourceFile.columns[index].key.name;
+					mh.srcHeader.occurrence = ms.sourceFile.columns[index].key.occurrence;
+					ms.mergeHeaders.push_back(std::move(mh));
+				}
+			}
+		}
+		project.save();
+	}
 
 	return true;
 }
