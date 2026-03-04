@@ -19,6 +19,9 @@ void SetTheme(Themes theme) {
 	case Themes::PURPLE_DARK:
 		ThemePurpleDark();
 		break;
+  case Themes::GIRLY_PINK:
+    ThemeGirlyPink();
+    break;
 	case Themes::GOLD_LIGHT:
 	default:
 		ThemeGoldLight();
@@ -28,6 +31,129 @@ void SetTheme(Themes theme) {
 
 void SetTheme(unsigned int theme) {
 	SetTheme((Themes)theme);
+}
+
+void ThemeGirlyPink()
+{
+    // Start from a light baseline; we’ll override most of it.
+    ImGui::StyleColorsLight();
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors    = style.Colors;
+
+    // --- Palette (soft light + pink) ---
+    const ImVec4 bg            = ImVec4(0.98f, 0.96f, 0.98f, 1.00f); // very light pink-lilac
+    const ImVec4 bgAlt         = ImVec4(0.96f, 0.93f, 0.96f, 1.00f);
+    const ImVec4 panel         = ImVec4(0.93f, 0.88f, 0.93f, 1.00f);
+
+    const ImVec4 text          = ImVec4(0.16f, 0.12f, 0.16f, 1.00f);
+    const ImVec4 textDisabled  = ImVec4(0.55f, 0.50f, 0.56f, 1.00f);
+
+    // Pink accent family (base / hover / active)
+    const ImVec4 pinkBase      = ImVec4(0.96f, 0.36f, 0.66f, 1.00f); // ~#F55CA8
+    const ImVec4 pinkHover     = ImVec4(0.98f, 0.48f, 0.74f, 1.00f);
+    const ImVec4 pinkActive    = ImVec4(0.88f, 0.22f, 0.54f, 1.00f);
+
+    // Optional “sparkle” highlight (used sparingly)
+    const ImVec4 candy         = ImVec4(1.00f, 0.78f, 0.90f, 1.00f);
+
+    // Borders / separators (warm, soft)
+    const ImVec4 border        = ImVec4(0.82f, 0.72f, 0.82f, 0.90f);
+    const ImVec4 separator     = ImVec4(0.80f, 0.70f, 0.80f, 0.85f);
+
+    // --- Text ---
+    colors[ImGuiCol_Text]                 = text;
+    colors[ImGuiCol_TextDisabled]         = textDisabled;
+
+    // --- Backgrounds ---
+    colors[ImGuiCol_WindowBg]             = bg;
+    colors[ImGuiCol_ChildBg]              = bgAlt;
+    colors[ImGuiCol_PopupBg]              = ImVec4(0.99f, 0.97f, 0.99f, 0.98f);
+
+    // --- Borders ---
+    colors[ImGuiCol_Border]               = border;
+    colors[ImGuiCol_BorderShadow]         = ImVec4(0, 0, 0, 0);
+
+    // --- Frames (inputs, combos, etc.) ---
+    colors[ImGuiCol_FrameBg]              = panel;
+    colors[ImGuiCol_FrameBgHovered]       = ImVec4(0.97f, 0.90f, 0.96f, 1.00f);
+    colors[ImGuiCol_FrameBgActive]        = ImVec4(0.95f, 0.87f, 0.94f, 1.00f);
+
+    // --- Title bars ---
+    colors[ImGuiCol_TitleBg]              = bgAlt;
+    colors[ImGuiCol_TitleBgActive]        = ImVec4(0.99f, 0.96f, 0.99f, 1.00f);
+    colors[ImGuiCol_TitleBgCollapsed]     = bgAlt;
+
+    // --- Menu / scrollbar ---
+    colors[ImGuiCol_MenuBarBg]            = bgAlt;
+
+    colors[ImGuiCol_ScrollbarBg]          = bgAlt;
+    colors[ImGuiCol_ScrollbarGrab]        = ImVec4(0.82f, 0.74f, 0.82f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.78f, 0.66f, 0.78f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive]  = ImVec4(0.74f, 0.60f, 0.74f, 1.00f);
+
+    // --- Checkmark / sliders ---
+    colors[ImGuiCol_CheckMark]            = pinkActive;
+    colors[ImGuiCol_SliderGrab]           = pinkBase;
+    colors[ImGuiCol_SliderGrabActive]     = pinkActive;
+
+    // --- Buttons (pink accent) ---
+    colors[ImGuiCol_Button]               = ImVec4(pinkBase.x,  pinkBase.y,  pinkBase.z, 0.85f);
+    colors[ImGuiCol_ButtonHovered]        = ImVec4(pinkHover.x, pinkHover.y, pinkHover.z, 0.95f);
+    colors[ImGuiCol_ButtonActive]         = ImVec4(pinkActive.x,pinkActive.y,pinkActive.z, 1.00f);
+
+    // --- Headers (selectable, tree nodes, collapsing) ---
+    colors[ImGuiCol_Header]               = ImVec4(pinkBase.x,  pinkBase.y,  pinkBase.z, 0.35f);
+    colors[ImGuiCol_HeaderHovered]        = ImVec4(pinkHover.x, pinkHover.y, pinkHover.z, 0.55f);
+    colors[ImGuiCol_HeaderActive]         = ImVec4(pinkActive.x,pinkActive.y,pinkActive.z, 0.65f);
+
+    // --- Separators ---
+    colors[ImGuiCol_Separator]            = separator;
+    colors[ImGuiCol_SeparatorHovered]     = ImVec4(pinkHover.x, pinkHover.y, pinkHover.z, 0.70f);
+    colors[ImGuiCol_SeparatorActive]      = ImVec4(pinkActive.x,pinkActive.y,pinkActive.z, 0.90f);
+
+    // --- Tabs (cute but readable) ---
+    colors[ImGuiCol_Tab]                  = ImVec4(0.95f, 0.90f, 0.95f, 1.00f);
+    colors[ImGuiCol_TabHovered]           = ImVec4(pinkHover.x, pinkHover.y, pinkHover.z, 0.80f);
+    colors[ImGuiCol_TabActive]            = ImVec4(pinkBase.x,  pinkBase.y,  pinkBase.z, 0.90f);
+    colors[ImGuiCol_TabUnfocused]         = ImVec4(0.97f, 0.94f, 0.97f, 1.00f);
+    colors[ImGuiCol_TabUnfocusedActive]   = ImVec4(0.96f, 0.92f, 0.96f, 1.00f);
+
+    // --- Resize grips ---
+    colors[ImGuiCol_ResizeGrip]           = ImVec4(pinkBase.x,  pinkBase.y,  pinkBase.z, 0.25f);
+    colors[ImGuiCol_ResizeGripHovered]    = ImVec4(pinkHover.x, pinkHover.y, pinkHover.z, 0.65f);
+    colors[ImGuiCol_ResizeGripActive]     = ImVec4(pinkActive.x,pinkActive.y,pinkActive.z, 0.90f);
+
+    // --- Selection / nav highlight ---
+    colors[ImGuiCol_TextSelectedBg]       = ImVec4(candy.x, candy.y, candy.z, 0.60f);
+    colors[ImGuiCol_DragDropTarget]       = pinkHover;
+    colors[ImGuiCol_NavHighlight]         = pinkBase;
+
+    // --- Plots ---
+    colors[ImGuiCol_PlotLines]            = ImVec4(0.55f, 0.25f, 0.55f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered]     = pinkHover;
+    colors[ImGuiCol_PlotHistogram]        = ImVec4(pinkBase.x, pinkBase.y, pinkBase.z, 0.85f);
+    colors[ImGuiCol_PlotHistogramHovered] = pinkHover;
+
+    // --- Modal dim ---
+    colors[ImGuiCol_ModalWindowDimBg]     = ImVec4(0.20f, 0.10f, 0.18f, 0.25f);
+
+    // --- Style shaping (soft + “cute”) ---
+    style.WindowRounding    = 10.0f;
+    style.FrameRounding     = 8.0f;
+    style.PopupRounding     = 10.0f;
+    style.ScrollbarRounding = 10.0f;
+    style.GrabRounding      = 8.0f;
+    style.TabRounding       = 8.0f;
+
+    style.WindowBorderSize  = 1.0f;
+    style.FrameBorderSize   = 1.0f;
+    style.TabBorderSize     = 0.0f;
+
+    // Optional: slightly more padding for a softer look
+    style.WindowPadding     = ImVec2(10.0f, 10.0f);
+    style.FramePadding      = ImVec2(8.0f, 5.0f);
+    style.ItemSpacing       = ImVec2(8.0f, 7.0f);
 }
 
 void ThemeGoldDark() {

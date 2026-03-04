@@ -8,6 +8,7 @@ bool IsInteger(const std::string& input);
 
 // Splits a string into 2 parts at given string
 std::pair<std::string, std::string> Splitlines(const std::string& input, const std::string& splitat);
+std::size_t CountSubstring(const std::string& str, const std::string& sub);
 bool StrContains(const std::string& input, const std::string& substring);
 bool StrStartswith(const std::string& input, const std::string& start);
 bool StrEndswith(const std::string& input, const std::string& ending);

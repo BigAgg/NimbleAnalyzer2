@@ -239,6 +239,10 @@ void App::taskbar(){
 			rlImGuiImageSize(texture, texture->width * scale, texture->height * scale);
 			ImGui::EndTooltip();
 		}
+		if (ImGui::Button("Girly Pink")) {
+			m_windowSettings.theme = Themes::GIRLY_PINK;
+			SetTheme(m_windowSettings.theme);
+		}
 		ImGui::SeparatorText("Dark themes");
 		if (ImGui::Button("Dark Blue")) {
 			m_windowSettings.theme = Themes::DARK;

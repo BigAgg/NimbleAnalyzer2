@@ -429,6 +429,13 @@ void NimbleAnalyzer::loadProjectsAvail() {
 		pdata.name = fl::getFilename(path);
 		pdata.path = path;
 		projectInfo.projectsAvail.push_back(pdata);
+
+		try {
+			convertOldProject(path);
+		}
+		catch (const std::exception& e) {
+			logging::logwarning("%s", e.what());
+		}
 	}
 	logging::loginfo("[NimbleAnalyzer::loadProjectsAvail] Available projects found: %zu", projectInfo.projectsAvail.size());
 }
@@ -459,12 +466,6 @@ void NimbleAnalyzer::projectSelection() {
 		for (const auto& project : projectInfo.projectsAvail) {
 			bool selected = (project.name == projectInfo.project.name);
 			if (ImGui::Selectable(project.name.c_str(), &selected)) {
-				try {
-					convertOldProject(project.path);
-				}
-				catch (const std::exception& e) {
-					logging::logwarning("%s", e.what());
-				}
 				if (projectInfo.project.loaded)
 					projectInfo.project.save();
 				projectInfo.project.load(project.name, project.path);

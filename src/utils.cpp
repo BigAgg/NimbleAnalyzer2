@@ -177,6 +177,19 @@ std::pair<std::string, std::string> Splitlines(const std::string& input, const s
 	return { left, right };
 }
 
+std::size_t CountSubstring(const std::string& str, const std::string& sub){
+	if (sub.empty()) return 0;
+
+	std::size_t count = 0;
+	std::size_t pos = 0;
+
+	while ((pos = str.find(sub, pos)) != std::string::npos) {
+		++count;
+		pos += sub.length();
+	}
+	return count;
+}
+
 bool IsNumber(const std::string& input) {
 	try{
 		if (input.size() == 0) return false;

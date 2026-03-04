@@ -12,6 +12,8 @@ std::vector<std::string> fileloader::loadfilelines(const std::string& filename, 
 	std::vector<std::string> content;
 	// retrieve content from file
 	const std::string rawcontent = loadfile(filename, false);
+	if (rawcontent.empty())
+		return content;
 	// Split into separate lines
 	Timer t;
 	t.Start();
@@ -55,7 +57,7 @@ std::string fileloader::loadfile(const std::string& filename, bool printinfo) {
 	Timer t;
 	t.Start();
 	// Open the file
-	std::ifstream file(filename, std::ios::binary);
+	std::ifstream file(u8topath(filename), std::ios::binary);
 	if (!file) {
 		logging::logwarning("[fileloader::loadfile] file could not be opened: %s", filename.c_str());
 		return content;
