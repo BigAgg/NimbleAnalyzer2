@@ -415,6 +415,7 @@ bool convertOldProject(const std::string& path){
 		{
 			msv->push_back({ "MergeFile" });
 			MergeSettings& ms = msv->back();
+			ms.sheetSettings.stopAtEmpty = true;
 			int line_idx = -1;
 			for (const std::string& line : ini) {
 				line_idx++;
@@ -432,14 +433,14 @@ bool convertOldProject(const std::string& path){
 					std::pair<std::string, std::string> values = Splitlines(Splitlines(line, " = ").second, " := ");
 					if (CountSubstring(line, " ##") < 2)
 						continue;
-					int index = std::stoi(Splitlines(values.first, " ##").second);
+					int index = std::stoi(Splitlines(values.first, " ##").second) + 1;
 					if (index >= project.activeFile.columns.size()) {
 						logging::logwarning("[project::convertOldProject] Index bigger than activeFile.columns.size");
 						continue;
 					}
 					ms.key.dstHeader.name = project.activeFile.columns[index].key.name;
 					ms.key.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
-					index = std::stoi(Splitlines(values.second, " ##").second);
+					index = std::stoi(Splitlines(values.second, " ##").second) + 1;
 					if (index >= ms.sourceFile.columns.size()) {
 						logging::logwarning("[project::convertOldProject] Index bigger than sourceFile.columns.size");
 						continue;
@@ -452,14 +453,14 @@ bool convertOldProject(const std::string& path){
 					for (int i = line_idx + 1; i < line_idx + count + 1; i++) {
 						MergeHeaders mh;
 						std::pair<std::string, std::string> values = Splitlines(ini[i], " := ");
-						int index = std::stoi(Splitlines(values.first, " ##").second);
+						int index = std::stoi(Splitlines(values.first, " ##").second) + 1;
 						if (index >= project.activeFile.columns.size()) {
 							logging::logwarning("[project::convertOldProject] Index bigger than activeFile.columns.size");
 							continue;
 						}
 						mh.dstHeader.name = project.activeFile.columns[index].key.name;
 						mh.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
-						index = std::stoi(Splitlines(values.second, " ##").second);
+						index = std::stoi(Splitlines(values.second, " ##").second) + 1;
 						if (index >= ms.sourceFile.columns.size()) {
 							logging::logwarning("[project::convertOldProject] Index bigger than sourceFile.columns.size");
 							continue;
@@ -475,6 +476,7 @@ bool convertOldProject(const std::string& path){
 		{
 			msv->push_back({ "MergeFolder" });
 			MergeSettings& ms = msv->back();
+			ms.sheetSettings.stopAtEmpty = true;
 			int line_idx = -1;
 			for (const std::string& line : ini) {
 				line_idx++;
@@ -493,7 +495,7 @@ bool convertOldProject(const std::string& path){
 				if (line.starts_with("m_dontimportifexistsheader = ") && Splitlines(line, " = ").second.size() > 3) {
 					if (CountSubstring(line, " ##") < 1)
 						continue;
-					int index = std::stoi(Splitlines(line, " ##").second);
+					int index = std::stoi(Splitlines(line, " ##").second) + 1;
 					if (index >= project.activeFile.columns.size())
 						continue;
 					ms.key.dstHeader = project.activeFile.columns[index].key;
@@ -505,14 +507,14 @@ bool convertOldProject(const std::string& path){
 						MergeHeaders mh;
 						std::string mh_line = ini[i];
 						std::pair<std::string, std::string> values = Splitlines(mh_line, " := ");
-						int index = std::stoi(Splitlines(values.first, " ##").second);
+						int index = std::stoi(Splitlines(values.first, " ##").second) + 1;
 						if (index >= project.activeFile.columns.size()) {
 							logging::logwarning("[project::convertOldProject] Index bigger than activeFile.columns.size");
 							continue;
 						}
 						mh.dstHeader.name = project.activeFile.columns[index].key.name;
 						mh.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
-						index = std::stoi(Splitlines(values.second, " ##").second);
+						index = std::stoi(Splitlines(values.second, " ##").second) + 1;
 						if (index >= ms.sourceFile.columns.size()) {
 							logging::logwarning("[project::convertOldProject] Index bigger than sourceFile.columns.size");
 							continue;
@@ -531,14 +533,14 @@ bool convertOldProject(const std::string& path){
 					std::pair<std::string, std::string> values = Splitlines(Splitlines(line, " = ").second, " := ");
 					if (CountSubstring(line, " ##") < 2)
 						continue;
-					int index = std::stoi(Splitlines(values.first, " ##").second);
+					int index = std::stoi(Splitlines(values.first, " ##").second) + 1;
 					if (index >= project.activeFile.columns.size()) {
 						logging::logwarning("[project::convertOldProject] Index bigger than activeFile.columns.size");
 						continue;
 					}
 					ms.key.dstHeader.name = project.activeFile.columns[index].key.name;
 					ms.key.dstHeader.occurrence = project.activeFile.columns[index].key.occurrence;
-					index = std::stoi(Splitlines(values.second, " ##").second);
+					index = std::stoi(Splitlines(values.second, " ##").second) + 1;
 					if (index >= ms.sourceFile.columns.size()) {
 						logging::logwarning("[project::convertOldProject] Index bigger than sourceFile.columns.size");
 						continue;
@@ -616,8 +618,6 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 	auto headerRow = ws.rows(false)[headerIndex];
 	for (auto cell : headerRow) {
 		std::string name = cell.to_string();
-		if (name == "DATA")
-			continue;
 		auto& count = seen[name];
 		HeaderKey key{ name, count++ };
 		ColId id = static_cast<ColId>(table.columns.size());
@@ -769,8 +769,6 @@ SheetTable load_sheet_csv(const std::string& filePath, const std::string& sheet,
 
 	for (const auto& hf : headerFields)
 	{
-		if (hf == "DATA")
-			continue;
 		Column col;
 		col.key = make_header_key(seen, hf);
 		ColId id = static_cast<ColId>(table.columns.size());
