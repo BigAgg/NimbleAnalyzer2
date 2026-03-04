@@ -406,15 +406,13 @@ void NimbleAnalyzer::checkForUpdates(){
 	updateInfo.version_avail_alpha = std::stoi(Splitlines(Splitlines(version_file, ".").second, ".").second);
 	logging::loginfo("Available version: %d.%d.%d", updateInfo.version_avail_major, updateInfo.version_avail_minor, updateInfo.version_avail_alpha);
 	// Read update info
-	if (updateInfo.version_major >= updateInfo.version_avail_major) {
-		if (updateInfo.version_minor >= updateInfo.version_avail_minor) {
-			if (updateInfo.version_alpha >= updateInfo.version_avail_alpha) {
-				return;
-			}
-		}
-	}
-	updateInfo.updateAvail = true;
-	if(fl::exists("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES"))
+	if (updateInfo.version_major < updateInfo.version_avail_major)
+		updateInfo.updateAvail = true;
+	if (updateInfo.version_minor < updateInfo.version_avail_minor && updateInfo.version_major == updateInfo.version_avail_major)
+		updateInfo.updateAvail = true;
+	if (updateInfo.version_alpha < updateInfo.version_avail_alpha && updateInfo.version_major == updateInfo.version_avail_major && updateInfo.version_minor == updateInfo.version_avail_minor)
+		updateInfo.updateAvail = true;
+	if(updateInfo.updateAvail && fl::exists("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES"))
 		updateInfo.updatetext = fl::loadfile("Y:/Produktion/Software & Tools/NimbleAnalyzer/src/output/CHANGES");
 }
 

@@ -1,4 +1,4 @@
-#define Name "Nimble Analyzer"
+#define Name "NimbleAnalyzer"
 #define Version "1.0.0"
 #define InstallDir "{commonpf}\Nimble Analyzer"
 
@@ -29,7 +29,7 @@ Name: "{app}"; Permissions: users-modify
 Name: "{app}"; Flags: uninsalwaysuninstall
 
 [Icons]
-Name: "{group}\{#Name}"; Filename: "{app}\{#Name}.exe"; IconFilename: "{app}\{#Name}.ico"
+Name: "{group}\{#Name}"; Filename: "{app}\{#Name}.exe"; IconFilename: "{app}\icon.ico"
 
 [Registry]
 ; Optional registry entries (e.g., add app to start Menu or uninstall registry)
