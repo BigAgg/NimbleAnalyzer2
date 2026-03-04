@@ -53,6 +53,7 @@ void App::initRaylib(const char* name){
 	InitWindow(m_windowSettings.width, m_windowSettings.height, name);
 	SetWindowIcon(LoadImage("icon.png"));
 	SetWindowState(FLAG_WINDOW_RESIZABLE);
+	SetWindowState(FLAG_MSAA_4X_HINT);
 	SetTargetFPS(m_windowSettings.fps);
 	if (m_windowSettings.vsync) {
 		SetWindowState(FLAG_VSYNC_HINT);
@@ -162,7 +163,7 @@ void App::saveSettings() {
 
 void App::render(){
 	BeginDrawing();
-	ClearBackground(BLACK);
+	//ClearBackground(BLACK);
 	rlImGuiBegin();
 	taskbar();
 	if (m_logviewSettings.displaylog)
@@ -239,6 +240,14 @@ void App::taskbar(){
 			rlImGuiImageSize(texture, texture->width * scale, texture->height * scale);
 			ImGui::EndTooltip();
 		}
+		if (ImGui::Button("Light Noctua")) {
+			m_windowSettings.theme = Themes::NOCTUA_LIGHT;
+			SetTheme(m_windowSettings.theme);
+		}
+		if (ImGui::Button("Light Rosepine")) {
+			m_windowSettings.theme = Themes::ROSEPINE_LIGHT;
+			SetTheme(m_windowSettings.theme);
+		}
 		if (ImGui::Button("Girly Pink")) {
 			m_windowSettings.theme = Themes::GIRLY_PINK;
 			SetTheme(m_windowSettings.theme);
@@ -273,6 +282,14 @@ void App::taskbar(){
 			Texture* texture = GetTexture("theme_dark_purple");
 			rlImGuiImageSize(texture, texture->width * scale, texture->height * scale);
 			ImGui::EndTooltip();
+		}
+		if (ImGui::Button("Dark Noctua")) {
+			m_windowSettings.theme = Themes::NOCTUA_DARK;
+			SetTheme(m_windowSettings.theme);
+		}
+		if (ImGui::Button("Dark Rosepine")) {
+			m_windowSettings.theme = Themes::ROSEPINE_DARK;
+			SetTheme(m_windowSettings.theme);
 		}
 		ImGui::EndMenu();
 	}

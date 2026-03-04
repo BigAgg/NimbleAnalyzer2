@@ -1,0 +1,246 @@
+version = 1
+profile_count = 2
+BEGIN_PROFILE
+file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0472_Xe-µJoule_WE_EndQC.xlsx
+sheet = Tabelle1
+rule_count = 2
+BEGIN_RULE
+rule_name = MergeFile
+mergefolder = 
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203 0472 Xe-µJoule_Wareneingangsmessung.xlsx
+src_sheet = Tabelle1
+dataRow = 1
+stopAtEmpty = 1
+dst_key_name = FlashSerial
+dst_key_occ = 0
+src_key_name = FlashSerial
+src_key_occ = 0
+reverseKey = 0
+mergeHeaders_count = 9
+BEGIN_HEADER
+dst_name = Modul
+dst_occ = 0
+src_name = Modul
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = FlashSerial
+dst_occ = 0
+src_name = FlashSerial
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Rev.
+dst_occ = 0
+src_name = Rev.
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Mean Energy in µJ
+dst_occ = 0
+src_name = Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Minimum in µJ
+dst_occ = 0
+src_name = Minimum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Maximum in µJ
+dst_occ = 0
+src_name = Maximum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Std. Deviation
+dst_occ = 0
+src_name = Std. Deviation
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Deviation in %
+dst_occ = 0
+src_name = Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Date
+dst_occ = 0
+src_name = Date
+src_occ = 0
+END_HEADER
+END_RULE
+BEGIN_RULE
+rule_name = MergeFolder
+mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0472
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0472/0472-002077_0203-1045_µJoule_2025-06-17_0843.csv
+src_sheet = main
+dataRow = 1
+stopAtEmpty = 1
+dst_key_name = ReaderSerial
+dst_key_occ = 0
+src_key_name = ReaderSerial
+src_key_occ = 0
+reverseKey = 1
+mergeHeaders_count = 11
+BEGIN_HEADER
+dst_name = FlashSerial
+dst_occ = 0
+src_name = FlashSerial
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = ReaderSerial
+dst_occ = 0
+src_name = ReaderSerial
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule Flashlamp: Mean Energy in µJ
+dst_occ = 0
+src_name = µJoule Flashlamp: Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule Flashlamp: Deviation in %
+dst_occ = 0
+src_name = µJoule Flashlamp: Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule Absorbance: Mean Energy in µJ
+dst_occ = 0
+src_name = µJoule Absorbance: Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule Absorbance: Deviation in %
+dst_occ = 0
+src_name = µJoule Absorbance: Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule TopFocus: Mean Energy in µJ
+dst_occ = 0
+src_name = µJoule TopFocus: Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule TopFocus: Deviation in %
+dst_occ = 0
+src_name = µJoule TopFocus: Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule BottomFocus: Mean Energy in µJ
+dst_occ = 0
+src_name = µJoule BottomFocus: Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = µJoule BottomFocus: Deviation in %
+dst_occ = 0
+src_name = µJoule BottomFocus: Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Date
+dst_occ = 1
+src_name = Date
+src_occ = 0
+END_HEADER
+END_RULE
+END_PROFILE
+BEGIN_PROFILE
+file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203 0472 Xe-µJoule_Wareneingangsmessung.xlsx
+sheet = Tabelle1
+rule_count = 1
+BEGIN_RULE
+rule_name = MergeFolder
+mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203/0203-0039_µJoule_2025-06-26_1257.csv
+src_sheet = main
+dataRow = 1
+stopAtEmpty = 1
+dst_key_name = FlashSerial
+dst_key_occ = 0
+src_key_name = FlashSerial
+src_key_occ = 0
+reverseKey = 1
+mergeHeaders_count = 12
+BEGIN_HEADER
+dst_name = Modul
+dst_occ = 0
+src_name = Modul
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = FlashSerial
+dst_occ = 0
+src_name = FlashSerial
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Rev.
+dst_occ = 0
+src_name = Rev.
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Mean Energy in µJ
+dst_occ = 0
+src_name = Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Minimum in µJ
+dst_occ = 0
+src_name = Minimum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Maximum in µJ
+dst_occ = 0
+src_name = Maximum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Std. Deviation
+dst_occ = 0
+src_name = Std. Deviation
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Deviation in %
+dst_occ = 0
+src_name = Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Date
+dst_occ = 0
+src_name = Date
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Filename
+dst_occ = 0
+src_name = Filename
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Resultpath
+dst_occ = 0
+src_name = Resultpath
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Prüfer
+dst_occ = 0
+src_name = Prüfer
+src_occ = 0
+END_HEADER
+END_RULE
+END_PROFILE

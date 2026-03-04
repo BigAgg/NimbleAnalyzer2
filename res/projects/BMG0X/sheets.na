@@ -1,0 +1,14 @@
+version = 1
+count = 2
+BEGIN
+file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG01 Xe-µJoule_Wareneingangsmessung.xlsx
+sheet = Tabelle1
+dataRow = 1
+stopAtEmpty = 1
+END
+BEGIN
+file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG02 Xe-µJoule_Wareneingangsmessung.xlsx
+sheet = Tabelle1
+dataRow = 1
+stopAtEmpty = 1
+END
