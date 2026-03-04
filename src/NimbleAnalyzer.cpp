@@ -420,7 +420,7 @@ void NimbleAnalyzer::checkForUpdates(){
 
 void NimbleAnalyzer::loadProjectsAvail() {
 	projectInfo.projectsAvail.clear();
-	for (const auto& path : fl::iteratePath("projects", false)) {
+	for (const auto& path : fl::iteratePath("projects", true, false)) {
 		if (!fl::exists(path)) {
 			logging::logwarning("[NimbleAnalyzer::loadProjectsAvail] Returned path does not exist: %s", path.c_str());
 			continue;
@@ -431,7 +431,9 @@ void NimbleAnalyzer::loadProjectsAvail() {
 		projectInfo.projectsAvail.push_back(pdata);
 
 		try {
-			convertOldProject(path);
+			if (convertOldProject(path)) {
+				logging::loginfo("[NimbleAnalyzer::loadProjectsAvail] Converted old project: %s", pdata.name.c_str());
+			}
 		}
 		catch (const std::exception& e) {
 			logging::logwarning("%s", e.what());

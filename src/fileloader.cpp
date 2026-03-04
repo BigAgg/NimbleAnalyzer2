@@ -148,7 +148,10 @@ std::vector<std::string> fileloader::iteratePath(const std::string& path, bool i
 	for (auto const& dir_entry : fs::directory_iterator{ dir }) {
 		std::string pbuffer = dir_entry.path().string();
 		convertContentToUTF8(&pbuffer);
-		content.push_back(pbuffer);
+		if(includeDirs && fs::is_directory(dir_entry))
+			content.push_back(pbuffer);
+		if(includeFiles && fs::is_regular_file(dir_entry))
+			content.push_back(pbuffer);
 	}
 	logging::loginfo("[fileloader::iteratePath] Found %zu entries in %s", content.size(), path.c_str());
 	return content;
