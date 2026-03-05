@@ -359,6 +359,80 @@ void NimbleAnalyzer::dataView(){
 }
 
 void NimbleAnalyzer::justMerge(){
+	ImGui::BeginChild("Project selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+	projectSelection();
+	ImGui::EndChild();
+	ImGui::SameLine();
+	ImGui::BeginChild("File selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
+	fileSelection();
+	ImGui::EndChild();
+	if (!projectInfo.project.loaded)
+		return;
+	std::vector<MergeSettings>* msv = projectInfo.project.getCurrentMergeSettingsHandle();
+	if (!msv)
+		return;
+	if (ImGui::Button("Merge")) {
+		for (auto& ms : (*msv)) {
+			if (!ms.sourceFile.loaded) {
+				continue;
+			}
+			logging::logwarning("[NimbleAnalyzer::justMerge] Merging: %s\n\
+								For file: %s", ms.name.c_str(), projectInfo.project.activeFile.path.c_str());
+			if (ms.mergefolder.empty()) {
+				MergeReport report = MergeTables(projectInfo.project.activeFile, ms.sourceFile, ms);
+				if (!report.warnings.empty()) {
+					for (const auto& msg : report.warnings) {
+						logging::logwarning("[Merge Report] %s", msg.c_str());
+					}
+				}
+				if (!report.errors.empty()) {
+					for (const auto& msg : report.errors) {
+						logging::logerror("[Merge Report] %s", msg.c_str());
+					}
+				}
+			}
+			else {
+				const std::vector<std::string> files = fl::iteratePath(ms.mergefolder, false);
+				for (const std::string& file : files) {
+					try {
+						std::string f = file;
+						std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+						if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
+							SheetTable srcTable = load_sheet(file, ms.sourceFile.activeSheet, ms.sheetSettings);
+							MergeReport report = MergeTables(projectInfo.project.activeFile, srcTable, ms);
+							if (!report.warnings.empty()) {
+								for (const auto& msg : report.warnings) {
+									logging::logwarning("[Merge Report] %s", msg.c_str());
+								}
+							}
+							if (!report.errors.empty()) {
+								for (const auto& msg : report.errors) {
+									logging::logerror("[Merge Report] %s", msg.c_str());
+								}
+							}
+						}
+					}
+					catch (const std::exception& e) {
+						logging::logerror(e.what());
+					}
+				}
+			}
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Save")) {
+		SaveReport report = save_sheet(projectInfo.project.activeFile.path, projectInfo.project.activeFile, *projectInfo.project.getCurrentSettingsHandle());
+		if (!report.warnings.empty()) {
+			for (const auto& warning : report.warnings) {
+				logging::logwarning("%s", warning.c_str());
+			}
+		}
+		if (!report.errors.empty()) {
+			for (const auto& warning : report.errors) {
+				logging::logwarning("%s", warning.c_str());
+			}
+		}
+	}
 }
 
 void NimbleAnalyzer::update(){
@@ -652,6 +726,22 @@ void NimbleAnalyzer::mergeSettings(){
 		if (ms_idx <= msv->size() && ms_idx > 0) {
 			msv->erase(msv->begin() + ms_idx - 1);
 			projectInfo.selectedMerge = "";
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("push_up", ImGuiDir::ImGuiDir_Up)) {
+		if (ms_idx > 1) {
+			std::swap((*msv)[ms_idx - 1], (*msv)[ms_idx - 2]);
+			ms_idx--;
+			ms = &(*msv)[ms_idx - 1];
+		}
+	}
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("push_down", ImGuiDir::ImGuiDir_Down)) {
+		if (ms_idx < msv->size()) {
+			std::swap((*msv)[ms_idx - 1], (*msv)[ms_idx]);
+			ms_idx++;
+			ms = &(*msv)[ms_idx - 1];
 		}
 	}
 	ImGui::SameLine();
