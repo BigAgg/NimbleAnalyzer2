@@ -379,6 +379,9 @@ bool convertOldProject(const std::string& path){
 	project.name = fl::getFilename(path);
 	project.path = path;
 	project.loaded = true;
+	const std::string projectFile = path + "/project.na";
+	if (fl::exists(projectFile))
+		return false;
 	const std::string proFile = path + "/.pro";
 	if (!fl::exists(proFile))
 		return false;
