@@ -7,7 +7,7 @@ rule_count = 1
 BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG01
-src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG01/Template_µJoule_2025-09-25_1429.csv
+src_file = projects/BMG0X/Template_µJoule_2025-09-25_1429.csv
 src_sheet = main
 dataRow = 0
 stopAtEmpty = 1
@@ -98,7 +98,7 @@ rule_count = 1
 BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG02
-src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/BMG02/Template_µJoule_2025-09-25_1429.csv
+src_file = projects/BMG0X/Template_µJoule_2025-09-25_1429.csv
 src_sheet = main
 dataRow = 0
 stopAtEmpty = 1

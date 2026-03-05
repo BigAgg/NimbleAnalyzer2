@@ -5,77 +5,9 @@ file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0430_Xe-µJoule_WE_End
 sheet = Tabelle1
 rule_count = 2
 BEGIN_RULE
-rule_name = MergeFile
-mergefolder = 
-src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0202 0430 Xe-µJoule_Wareneingangsmessung.xlsx
-src_sheet = Tabelle1
-dataRow = 1
-stopAtEmpty = 1
-dst_key_name = FlashSerial
-dst_key_occ = 0
-src_key_name = FlashSerial
-src_key_occ = 0
-reverseKey = 0
-mergeHeaders_count = 9
-BEGIN_HEADER
-dst_name = Modul
-dst_occ = 0
-src_name = Modul
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = FlashSerial
-dst_occ = 0
-src_name = FlashSerial
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Rev.
-dst_occ = 0
-src_name = Rev.
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Mean Energy in µJ
-dst_occ = 0
-src_name = Mean Energy in µJ
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Minimum in µJ
-dst_occ = 0
-src_name = Minimum in µJ
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Maximum in µJ
-dst_occ = 0
-src_name = Maximum in µJ
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Std. Deviation
-dst_occ = 0
-src_name = Std. Deviation
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Deviation in %
-dst_occ = 0
-src_name = Deviation in %
-src_occ = 0
-END_HEADER
-BEGIN_HEADER
-dst_name = Date
-dst_occ = 0
-src_name = Date
-src_occ = 0
-END_HEADER
-END_RULE
-BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0430
-src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0430/0430-005097_0202-3992_µJoule_2025-06-18_1109.csv
+src_file = projects/0430 Xe-µJoule/0430-005097_0202-3992_µJoule_2025-06-18_1109.csv
 src_sheet = main
 dataRow = 1
 stopAtEmpty = 1
@@ -152,6 +84,74 @@ src_name = Date
 src_occ = 0
 END_HEADER
 END_RULE
+BEGIN_RULE
+rule_name = MergeFile
+mergefolder = 
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0202 0430 Xe-µJoule_Wareneingangsmessung.xlsx
+src_sheet = Tabelle1
+dataRow = 1
+stopAtEmpty = 1
+dst_key_name = FlashSerial
+dst_key_occ = 0
+src_key_name = FlashSerial
+src_key_occ = 0
+reverseKey = 0
+mergeHeaders_count = 9
+BEGIN_HEADER
+dst_name = Modul
+dst_occ = 0
+src_name = Modul
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = FlashSerial
+dst_occ = 0
+src_name = FlashSerial
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Rev.
+dst_occ = 0
+src_name = Rev.
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Mean Energy in µJ
+dst_occ = 0
+src_name = Mean Energy in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Minimum in µJ
+dst_occ = 0
+src_name = Minimum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Maximum in µJ
+dst_occ = 0
+src_name = Maximum in µJ
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Std. Deviation
+dst_occ = 0
+src_name = Std. Deviation
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Deviation in %
+dst_occ = 0
+src_name = Deviation in %
+src_occ = 0
+END_HEADER
+BEGIN_HEADER
+dst_name = Date
+dst_occ = 0
+src_name = Date
+src_occ = 0
+END_HEADER
+END_RULE
 END_PROFILE
 BEGIN_PROFILE
 file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0202 0430 Xe-µJoule_Wareneingangsmessung.xlsx
@@ -160,7 +160,7 @@ rule_count = 1
 BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0202
-src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0202/0202-3768_µJoule_2025-06-26_0824.csv
+src_file = projects/0430 Xe-µJoule/0202-3768_µJoule_2025-06-26_0824.csv
 src_sheet = main
 dataRow = 1
 stopAtEmpty = 1
