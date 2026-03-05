@@ -1,3 +1,0 @@
-sep=;
-"DATA";"ReaderSerial";"Modul";"FlashSerial";"µJoule Flashlamp: Mean Energy in µJ";"µJoule Flashlamp: Deviation in %";"µJoule Absorbance: Mean Energy in µJ";"µJoule Absorbance: Deviation in %";"µJoule TopFocus: Mean Energy in µJ";"µJoule TopFocus: Deviation in %";"µJoule BottomFocus: Mean Energy in µJ";"µJoule BottomFocus: Deviation in %";"Date";"Filename";"Resultpath";"Flashes";"Intervallzeit x 10ms ";"Intervalle"
-;"0421-000415";"LS06-";2232676;0,0000;0,0000;34,5330;0,3110;30,7950;0,2900;11,6760;0,2760;"03.07.2025";"0421-000415_LS06-2232676_µJoule_2025-07-03_1201.csv";"Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0421/";1;5;100
