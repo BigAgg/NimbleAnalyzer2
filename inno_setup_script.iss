@@ -15,7 +15,7 @@ OutputBaseFilename=setup
 Compression=lzma
 SolidCompression=yes
 LicenseFile=LICENSE
-SetupIconFile=.\res\{#Name}.ico
+SetupIconFile=.\res\icon.ico
 
 [FILES]
 ; Exectuable and needed files (dlls etc.)
