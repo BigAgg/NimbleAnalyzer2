@@ -7,7 +7,7 @@ rule_count = 2
 BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0472
-src_file = projects/0472 Xe-µJoule/0472-002077_0203-1045_µJoule_2025-06-17_0843.csv
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/0472/0472-002102_0203-1111_µJoule_2026-02-04_1556.csv
 src_sheet = main
 dataRow = 1
 stopAtEmpty = 1
@@ -160,7 +160,7 @@ rule_count = 1
 BEGIN_RULE
 rule_name = MergeFolder
 mergefolder = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203
-src_file = projects/0472 Xe-µJoule/0203-0039_µJoule_2025-06-26_1257.csv
+src_file = Y:/Produktion/Prüffeld/Prüfprotokolle/Xe-µJoule/Wareneingangsmessung/0203/0203-1156_µJoule_2026-01-30_0909.csv
 src_sheet = main
 dataRow = 1
 stopAtEmpty = 1
