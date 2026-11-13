@@ -6,6 +6,8 @@
 #include <tinyxml2.h>
 #include <xlnt/xlnt.hpp>
 #include <xlnt/xlnt_config.hpp>
+#include <cmath>
+#include <limits>
 
 static const char* SETTINGS_FILE = "project.na";
 static const char* SHEET_SETTINGS_FILE = "sheets.na";
@@ -629,7 +631,7 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 	}
 
 	// Data rows
-	for (std::size_t r = headerIndex + 1; r < rows.length(); ++r) {
+	for (std::size_t r = static_cast<size_t>(headerIndex) + 1; r < rows.length (); ++r) {
 		auto row = rows[r];
 		table.rowCount++;
 		// single cells
@@ -642,23 +644,33 @@ SheetTable load_sheet(const std::string& filePath, const std::string& sheet, She
 					std::string keyname = table.columns[c].key.name;
 					std::transform(keyname.begin(), keyname.end(), keyname.begin(), ::tolower);
 					switch (cell.data_type()) {
-					case xlnt::cell_type::number:
-						if (keyname.contains("date") || keyname.contains("datum")) {
-							value = ExcelSerialToDate(cell.value<double>());
-							break;
-						}
-						value = cell.value<double>();
-						break;
-					case xlnt::cell_type::boolean:
-						value = cell.value<bool>();
-						break;
-					case xlnt::cell_type::date:
-					case xlnt::cell_type::empty:
-					case xlnt::cell_type::formula_string:
-					default:
-						value = cell.to_string();
-						break;
-					}
+											case xlnt::cell_type::number:
+													if (keyname.contains("date") || keyname.contains("datum")) {
+															value = ExcelSerialToDate(cell.value<double>());
+															break;
+													}
+													{
+															double dv = cell.value<double>();
+															double intpart;
+															if (std::modf(dv, &intpart) == 0.0 && dv <= (double)std::numeric_limits<long long>::max() && dv >= (double)std::numeric_limits<long long>::min()) {
+																	value = static_cast<std::int64_t>(intpart);
+															}
+															else {
+																	value = dv;
+															}
+													}
+													break;
+											case xlnt::cell_type::boolean:
+													value = cell.value<bool>();
+													break;
+											case xlnt::cell_type::date:
+											case xlnt::cell_type::empty:
+											case xlnt::cell_type::formula_string:
+											default:
+													// Try to parse formatted text (may contain thousand separators and comma decimal)
+													value = parse_value_auto(cell.to_string());
+													break;
+											}
 				}
 				else {
 					emptyCount++;
@@ -938,27 +950,35 @@ SaveReport save_sheet(const std::string& filePath, SheetTable& table, const Shee
 		}
 	}
 
+	// Helper paths
+	auto make_temp = [&](const std::string& p) {
+		return p + ".na_tmp";
+	};
+	auto make_backup = [&](const std::string& p) {
+		return p + ".bak";
+	};
+
 	// ---------------- CSV ----------------
 	if (filePath.ends_with(".csv") || filePath.ends_with(".CSV"))
 	{
 		// Use ';' because you display decimal comma.
 		const char delim = ';';
 
-		std::ofstream out(fl::u8topath(filePath), std::ios::binary | std::ios::trunc);
+		const std::string tmpPath = make_temp(filePath);
+
+		std::ofstream out(fl::u8topath(tmpPath), std::ios::binary | std::ios::trunc);
 		if (!out)
 		{
-			report.errors.push_back("save_sheet: could not open CSV for writing: " + filePath);
+			report.errors.push_back("save_sheet: could not open temp CSV for writing: " + tmpPath);
 			return report;
 		}
 
-		// CSV cannot preserve "rows above header" unless you stored them; export as a clean table.
 		// header row:
 		{
 			std::vector<std::string> hdr;
 			hdr.reserve(table.columns.size());
 			for (const auto& col : table.columns)
 			{
-				// Keep the original header name; if you want to disambiguate duplicates in CSV use header_label(col.key)
 				hdr.push_back(col.key.name);
 			}
 			write_csv_line(out, hdr, delim);
@@ -977,6 +997,32 @@ SaveReport save_sheet(const std::string& filePath, SheetTable& table, const Shee
 			}
 
 			write_csv_line(out, row, delim);
+		}
+
+		out.close();
+
+		// Simple validation: tmp file must exist and be non-empty
+		{
+			std::ifstream tin(fl::u8topath(tmpPath), std::ios::binary);
+			if (!tin || tin.peek() == std::ifstream::traits_type::eof()) {
+				report.errors.push_back("save_sheet: temp CSV empty or unreadable: " + tmpPath);
+				fl::del(tmpPath);
+				return report;
+			}
+		}
+
+		// Backup original then replace
+		if (fl::exists(filePath)) {
+			const std::string bak = make_backup(filePath);
+			try { fl::copy(filePath, bak, true); } catch (...) {}
+		}
+		try {
+			fl::copy(tmpPath, filePath, true);
+			fl::del(tmpPath);
+		}
+		catch (const std::exception& e) {
+			report.errors.push_back(std::string("save_sheet: could not move CSV to target: ") + e.what());
+			return report;
 		}
 
 		report.cellsWritten = table.rowCount * table.columns.size();
@@ -1012,8 +1058,6 @@ SaveReport save_sheet(const std::string& filePath, SheetTable& table, const Shee
 		}
 
 		// Decide header row position using SheetSettings.
-		// IMPORTANT: Your current loader increments dataRow starting from 0, so treat dataRow as 0-based.
-		// If in your UI it is 1-based, change to: excelHeaderRow = (ss.dataRow <= 0 ? 1 : (size_t)ss.dataRow);
 		const std::size_t excelHeaderRow = (ss.dataRow >= 0) ? (std::size_t(ss.dataRow) + 1) : 1;
 		const std::size_t excelDataStart = excelHeaderRow + 1;
 
@@ -1023,10 +1067,7 @@ SaveReport save_sheet(const std::string& filePath, SheetTable& table, const Shee
 		// Clear only the table region (from header row down), preserve everything above it.
 		{
 			const std::size_t oldMaxRow = (std::size_t)ws.highest_row();
-
-			// In some xlnt forks this is highest_column_or_props(); if highest_column() doesn't compile, swap it.
 			const std::size_t oldMaxCol = ws.highest_column().index;
-
 			const std::size_t clearRows = std::max(oldMaxRow, newMaxRow);
 			const std::size_t clearCols = std::max(oldMaxCol, newMaxCol);
 
@@ -1056,15 +1097,44 @@ SaveReport save_sheet(const std::string& filePath, SheetTable& table, const Shee
 			}
 		}
 
-		// Save workbook
+		// Save to temporary file first
+		const std::string tmpPath = make_temp(filePath);
 		{
-			std::ofstream out(fl::u8topath(filePath), std::ios::binary | std::ios::trunc);
+			std::ofstream out(fl::u8topath(tmpPath), std::ios::binary | std::ios::trunc);
 			if (!out)
 			{
-				report.errors.push_back("save_sheet: could not open XLSX for writing: " + filePath);
+				report.errors.push_back("save_sheet: could not open temp XLSX for writing: " + tmpPath);
 				return report;
 			}
 			wb.save(out);
+		}
+
+		// Validate written file by attempting to load it
+		try {
+			xlnt::workbook testwb;
+			std::ifstream tin(fl::u8topath(tmpPath), std::ios::binary);
+			if (!tin) throw std::runtime_error("could not open temp xlsx for validation");
+			testwb.load(tin);
+		}
+		catch (const std::exception& e) {
+			// validation failed, do not overwrite original
+			report.errors.push_back(std::string("save_sheet: validation failed for XLSX: ") + e.what());
+			// leave temp file for inspection
+			return report;
+		}
+
+		// validation succeeded -> backup original and replace
+		if (fl::exists(filePath)) {
+			const std::string bak = make_backup(filePath);
+			try { fl::copy(filePath, bak, true); } catch (...) {}
+		}
+		try {
+			fl::copy(tmpPath, filePath, true);
+			fl::del(tmpPath);
+		}
+		catch (const std::exception& e) {
+			report.errors.push_back(std::string("save_sheet: could not move XLSX to target: ") + e.what());
+			return report;
 		}
 
 		report.cellsWritten = table.rowCount * table.columns.size();
@@ -1194,7 +1264,7 @@ MergeReport MergeTables(SheetTable& dst, SheetTable& src, const MergeSettings& s
 				continue;
 			}
 			for (const auto& value : srcCol->values) {
-				dstCol->values.emplace_back(std::move(value));
+				dstCol->values.emplace_back(value);
 				if (!value.second.empty())
 					report.cellsWritten++;
 				if (dstCol->values.size() > dst.rowCount)

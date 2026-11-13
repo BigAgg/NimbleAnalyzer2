@@ -12,6 +12,9 @@
 #include <string>
 #include <vector>
 #include <charconv>
+#include <thread>
+#include <atomic>
+#include <mutex>
 
 namespace fl = fileloader;
 #define LISTBOX_WIDTH 275.0f
@@ -45,6 +48,15 @@ static struct {
 		projectsAvail.clear();
 	}
 } projectInfo;
+
+// Merge-all background state
+static std::atomic<bool> g_isMerging{ false };
+static std::atomic<int> g_totalWork{ 0 };
+static std::atomic<int> g_workDone{ 0 };
+static std::mutex g_mergeMutex;
+static std::string g_mergeProject = "";
+static std::string g_mergeFile = "";
+static std::string g_mergeSetting = "";
 
 
 void NimbleAnalyzer::init(){
@@ -123,6 +135,9 @@ No Filters just searches for everything that starts with your searchtext", '%');
 			viewmode = ViewMode::ProjectSelection;
 		if (ImGui::Button("Data view"))
 			viewmode = ViewMode::DataView;
+		break;
+	default:
+		viewmode = ViewMode::JustMerge;
 		break;
 	}
 }
@@ -359,78 +374,177 @@ void NimbleAnalyzer::dataView(){
 }
 
 void NimbleAnalyzer::justMerge(){
-	ImGui::BeginChild("Project selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
-	projectSelection();
-	ImGui::EndChild();
-	ImGui::SameLine();
-	ImGui::BeginChild("File selection", { CHILD_WINDOW_WIDTH, CHILD_WINDOW_HEIGHT }, true);
-	fileSelection();
-	ImGui::EndChild();
-	if (!projectInfo.project.loaded)
-		return;
-	std::vector<MergeSettings>* msv = projectInfo.project.getCurrentMergeSettingsHandle();
-	if (!msv)
-		return;
-	if (ImGui::Button("Merge")) {
-		for (auto& ms : (*msv)) {
-			if (!ms.sourceFile.loaded) {
-				continue;
-			}
-			logging::logwarning("[NimbleAnalyzer::justMerge] Merging: %s\n\
-								For file: %s", ms.name.c_str(), projectInfo.project.activeFile.path.c_str());
-			if (ms.mergefolder.empty()) {
-				MergeReport report = MergeTables(projectInfo.project.activeFile, ms.sourceFile, ms);
-				if (!report.warnings.empty()) {
-					for (const auto& msg : report.warnings) {
-						logging::logwarning("[Merge Report] %s", msg.c_str());
-					}
-				}
-				if (!report.errors.empty()) {
-					for (const auto& msg : report.errors) {
-						logging::logerror("[Merge Report] %s", msg.c_str());
-					}
-				}
-			}
-			else {
-				const std::vector<std::string> files = fl::iteratePath(ms.mergefolder, false);
-				for (const std::string& file : files) {
-					try {
-						std::string f = file;
-						std::transform(f.begin(), f.end(), f.begin(), ::tolower);
-						if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
-							SheetTable srcTable = load_sheet(file, ms.sourceFile.activeSheet, ms.sheetSettings);
-							MergeReport report = MergeTables(projectInfo.project.activeFile, srcTable, ms);
-							if (!report.warnings.empty()) {
-								for (const auto& msg : report.warnings) {
-									logging::logwarning("[Merge Report] %s", msg.c_str());
-								}
-							}
-							if (!report.errors.empty()) {
-								for (const auto& msg : report.errors) {
-									logging::logerror("[Merge Report] %s", msg.c_str());
+	// If merging, render white full-screen overlay with current status and progress
+	if (g_isMerging.load()) {
+		ImGuiIO& io = ImGui::GetIO();
+		ImDrawList* dl = ImGui::GetForegroundDrawList();
+		dl->AddRectFilled(ImVec2(0, 0), io.DisplaySize, IM_COL32(255, 255, 255, 255));
+
+		std::string proj, file, setting;
+		int total = g_totalWork.load();
+		int done = g_workDone.load();
+		{
+			std::lock_guard<std::mutex> lk(g_mergeMutex);
+			proj = g_mergeProject;
+			file = g_mergeFile;
+			setting = g_mergeSetting;
+		}
+
+		std::string line1 = std::string("Merging project: ") + proj;
+		std::string line2 = std::string("File: ") + file;
+		std::string line3 = std::string("Setting: ") + setting;
+		std::string line4 = std::to_string(done) + " / " + std::to_string(total);
+
+		ImVec2 center = ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f);
+		ImVec2 s1 = ImGui::CalcTextSize(line1.c_str());
+		ImVec2 s2 = ImGui::CalcTextSize(line2.c_str());
+		ImVec2 s3 = ImGui::CalcTextSize(line3.c_str());
+		ImVec2 s4 = ImGui::CalcTextSize(line4.c_str());
+
+		dl->AddText(ImVec2(center.x - s1.x * 0.5f, center.y - 40.0f), IM_COL32(0, 0, 0, 255), line1.c_str());
+		dl->AddText(ImVec2(center.x - s2.x * 0.5f, center.y - 20.0f), IM_COL32(0, 0, 0, 255), line2.c_str());
+		dl->AddText(ImVec2(center.x - s3.x * 0.5f, center.y), IM_COL32(0, 0, 0, 255), line3.c_str());
+		dl->AddText(ImVec2(center.x - s4.x * 0.5f, center.y + 22.0f), IM_COL32(0, 0, 0, 255), line4.c_str());
+
+		// Progress bar
+		float barWidth = std::min(700.0f, io.DisplaySize.x - 200.0f);
+		ImVec2 barPos = ImVec2(center.x - barWidth * 0.5f, center.y + 44.0f);
+		ImVec2 barSize = ImVec2(barWidth, 20.0f);
+		float frac = 0.0f;
+		if (total > 0) frac = (float)done / (float)total;
+		dl->AddRectFilled(barPos, ImVec2(barPos.x + barSize.x, barPos.y + barSize.y), IM_COL32(220, 220, 220, 255));
+		dl->AddRectFilled(barPos, ImVec2(barPos.x + barSize.x * frac, barPos.y + barSize.y), IM_COL32(50, 150, 250, 255));
+		dl->AddRect(barPos, ImVec2(barPos.x + barSize.x, barPos.y + barSize.y), IM_COL32(0, 0, 0, 255));
+
+		// percent text centered on bar
+		char pctbuf[16];
+		snprintf(pctbuf, sizeof(pctbuf), "%d%%", (int)(frac * 100.0f));
+		ImVec2 sp = ImGui::CalcTextSize(pctbuf);
+		dl->AddText(ImVec2(center.x - sp.x * 0.5f, barPos.y + (barSize.y - sp.y) * 0.5f), IM_COL32(0, 0, 0, 255), pctbuf);
+
+		return; // skip normal UI while merging
+	}
+
+	if (ImGui::Button("Merge all")) {
+		if (!g_isMerging.load()) {
+			g_isMerging.store(true);
+			std::thread([](){
+				try {
+					// First pass: compute total work
+					int total = 0;
+					for (const auto& pd : projectInfo.projectsAvail) {
+						if (projectInfo.project.loaded)
+							projectInfo.project.save();
+						projectInfo.project.load(pd.name, pd.path);
+						for (const auto& file : projectInfo.project.files) {
+							projectInfo.project.loadfile(file);
+							if (!projectInfo.project.activeFile.loaded)
+								continue;
+							auto allmsv = projectInfo.project.getCurrentMergeSettingsHandle();
+							if (!allmsv) continue;
+							for (auto& ms : (*allmsv)) {
+								if (!ms.sourceFile.loaded) continue;
+								if (ms.mergefolder.empty()) total++;
+								else {
+									const std::vector<std::string> files = fl::iteratePath(ms.mergefolder, false);
+									for (const auto& fpath : files) {
+										std::string f = fpath;
+										std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+										if (f.ends_with(".xlsx") || f.ends_with(".csv")) total++;
+									}
 								}
 							}
 						}
 					}
-					catch (const std::exception& e) {
-						logging::logerror(e.what());
+					g_totalWork.store(total);
+					g_workDone.store(0);
+
+					// Second pass: perform merges and increment progress
+					for (const auto& pd : projectInfo.projectsAvail) {
+						{
+							std::lock_guard<std::mutex> lk(g_mergeMutex);
+							g_mergeProject = pd.name;
+							g_mergeFile.clear();
+							g_mergeSetting.clear();
+						}
+
+						if (projectInfo.project.loaded)
+							projectInfo.project.save();
+						projectInfo.project.load(pd.name, pd.path);
+
+						for (const auto& file : projectInfo.project.files) {
+							{
+								std::lock_guard<std::mutex> lk(g_mergeMutex);
+								g_mergeFile = file;
+								g_mergeSetting.clear();
+							}
+							projectInfo.project.loadfile(file);
+							if (!projectInfo.project.activeFile.loaded) continue;
+							auto allmsv = projectInfo.project.getCurrentMergeSettingsHandle();
+							if (!allmsv) continue;
+							for (auto& ms : (*allmsv)) {
+								{
+									std::lock_guard<std::mutex> lk(g_mergeMutex);
+									g_mergeSetting = ms.name;
+								}
+								if (!ms.sourceFile.loaded) continue;
+								if (ms.mergefolder.empty()) {
+									try {
+										MergeReport report = MergeTables(projectInfo.project.activeFile, ms.sourceFile, ms);
+										// log report
+										if (!report.warnings.empty()) for (const auto& msg : report.warnings) logging::logwarning("[Merge Report] %s", msg.c_str());
+										if (!report.errors.empty()) for (const auto& msg : report.errors) logging::logerror("[Merge Report] %s", msg.c_str());
+									}
+									catch (const std::exception& e) { logging::logerror(e.what()); }
+									g_workDone.fetch_add(1);
+								}
+								else {
+									const std::vector<std::string> files = fl::iteratePath(ms.mergefolder, false);
+									for (const std::string& fpath : files) {
+										try {
+											std::string f = fpath;
+											std::transform(f.begin(), f.end(), f.begin(), ::tolower);
+											if (f.ends_with(".xlsx") || f.ends_with(".csv")) {
+												try {
+													SheetTable srcTable = load_sheet(fpath, ms.sourceFile.activeSheet, ms.sheetSettings);
+													MergeReport report = MergeTables(projectInfo.project.activeFile, srcTable, ms);
+													if (!report.warnings.empty()) for (const auto& msg : report.warnings) logging::logwarning("[Merge Report] %s", msg.c_str());
+													if (!report.errors.empty()) for (const auto& msg : report.errors) logging::logerror("[Merge Report] %s", msg.c_str());
+												}
+												catch (const std::exception& e) { logging::logerror(e.what()); }
+												g_workDone.fetch_add(1);
+											}
+										}
+										catch (const std::exception& e) {
+											logging::logerror(e.what());
+										}
+									}
+								}
+							}
+							// save after processing each file
+							SaveReport sreport = save_sheet(projectInfo.project.activeFile.path, projectInfo.project.activeFile, *projectInfo.project.getCurrentSettingsHandle());
+							if (!sreport.warnings.empty()) {
+								for (const auto& warning : sreport.warnings) logging::logwarning("%s", warning.c_str());
+							}
+							if (!sreport.errors.empty()) {
+								for (const auto& error : sreport.errors) logging::logwarning("%s", error.c_str());
+							}
+						}
 					}
 				}
-			}
-		}
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("Save")) {
-		SaveReport report = save_sheet(projectInfo.project.activeFile.path, projectInfo.project.activeFile, *projectInfo.project.getCurrentSettingsHandle());
-		if (!report.warnings.empty()) {
-			for (const auto& warning : report.warnings) {
-				logging::logwarning("%s", warning.c_str());
-			}
-		}
-		if (!report.errors.empty()) {
-			for (const auto& warning : report.errors) {
-				logging::logwarning("%s", warning.c_str());
-			}
+				catch (const std::exception& e) {
+					logging::logerror(e.what());
+				}
+				{
+					std::lock_guard<std::mutex> lk(g_mergeMutex);
+					g_mergeProject.clear();
+					g_mergeFile.clear();
+					g_mergeSetting.clear();
+				}
+				g_totalWork.store(0);
+				g_workDone.store(0);
+				g_isMerging.store(false);
+			}).detach();
 		}
 	}
 }
@@ -586,6 +700,20 @@ void NimbleAnalyzer::fileSelection(){
 	if (!projectInfo.project.loaded)
 		return;
 	ImGui::Text("Files");
+	ImGui::SameLine ();
+	if (ImGui::ArrowButton ("Hoch", ImGuiDir_Up)) {
+		auto it = std::find (projectInfo.project.files.begin (), projectInfo.project.files.end (), projectInfo.project.activeFile.path);
+		if (*it != projectInfo.project.files.front () && it != projectInfo.project.files.end()) {
+			std::iter_swap (it, it - 1);
+		}
+	}
+	ImGui::SameLine ();
+	if (ImGui::ArrowButton ("Runter", ImGuiDir_Down)) {
+		auto it = std::find (projectInfo.project.files.begin (), projectInfo.project.files.end (), projectInfo.project.activeFile.path);
+		if (*it != projectInfo.project.files.back () && it != projectInfo.project.files.end()) {
+			std::iter_swap (it, it + 1);
+		}
+	}
 	if (ImGui::BeginListBox("## File Selection", { LISTBOX_WIDTH, LISTBOX_HEIGHT })) {
 		for (const auto& file : projectInfo.project.files) {
 			bool selected = (file == projectInfo.project.activeFile.path);
@@ -864,8 +992,8 @@ void NimbleAnalyzer::mergeSettings(){
 	ImGui::SameLine();
 	ImGui::Checkbox("Reverse header", &ms->reverseKey);
 	ImGui::SetItemTooltip("Sets the key headers to work in reverse.\n\
-Unticked: Only import if the headers value from the src file does NOT exist in dst file\n\
-Ticked: Only import if the headers value from the src file does exist in dst file and fill row with data");
+Ticked: Only import if the headers value from the src file does NOT exist in dst file\n\
+Unticked: Only import if the headers value from the src file does exist in dst file and fill row with data");
 	// add rules
 	ImGui::SeparatorText("Merging headers");
 	int size = ms->mergeHeaders.size();

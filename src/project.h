@@ -92,8 +92,17 @@ static ExcelValue parse_value_auto(const std::string& input) {
 	// Bool
 	if (s == "true") return true;
 	if (s == "false") return false;
-	// Normalize doubles
-	std::string n = normalize_decimal(s);
+	// Preprocess common formatted numbers: if input contains a comma as decimal
+	// separator and dots/spaces as thousand separators (German style), remove
+	// thousand separators so numeric parsing succeeds (e.g. "3.955,000" -> "3955,000").
+	std::string tmp = s;
+	if (tmp.find(',') != std::string::npos) {
+		// remove dots and spaces (likely thousand separators)
+		tmp.erase(std::remove(tmp.begin(), tmp.end(), '.'), tmp.end());
+		tmp.erase(std::remove(tmp.begin(), tmp.end(), ' '), tmp.end());
+	}
+	// Normalize decimals (commas -> dots)
+	std::string n = normalize_decimal(tmp);
 	// int
 	{
 		char* end = nullptr;
@@ -104,7 +113,14 @@ static ExcelValue parse_value_auto(const std::string& input) {
 	{
 		char* end = nullptr;
 		double d = std::strtod(n.c_str(), &end);
-		if (end && *end == '\0') return d;
+		if (end && *end == '\0') {
+			// If double is integral (e.g. 3955.000) return integer variant to avoid showing decimals
+			double intpart = 0.0;
+			if (std::modf(d, &intpart) == 0.0 && d <= (double)std::numeric_limits<long long>::max() && d >= (double)std::numeric_limits<long long>::min()) {
+				return (std::int64_t)intpart;
+			}
+			return d;
+		}
 	}
 	// Date
 	/*if (isDate(s)) {

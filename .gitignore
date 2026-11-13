@@ -1,6 +1,8 @@
 output/
 build/
 testfiles/
+.vs/
+*Thumbs.db
 *.obj
 *.exe
 *.o

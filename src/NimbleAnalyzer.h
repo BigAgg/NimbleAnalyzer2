@@ -30,7 +30,7 @@ private:
 	void mergeSettings();
 	void filterRows();
 	
-	ViewMode viewmode = ViewMode::ProjectSelection;
+	ViewMode viewmode = ViewMode::JustMerge;
 	struct {
 		bool updateAvail = false;
 		unsigned int version_minor = 0;
